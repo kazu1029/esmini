@@ -4,15 +4,16 @@ GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 BINARY_NAME=esmini
 BINARY_UNIX=$(BINARY_NAME)_unix
+DOCKER_COMPOSE=docker-compose
 
 build:
 	$(GOBUILD) -o $(BINARY_NAME) -v
 
 test:
-	$(GOTEST) -v ./...
+	$(DOCKER_COMPOSE) run app $(GOTEST) -v ./...
 
 examples:
-	$(GOTEST) . -v -run=Example*
+	$(DOCKER_COMPOSE) run app $(GOTEST) . -v -run=Example*
 
 clean:
 	$(GOCLEAN)
@@ -22,3 +23,5 @@ clean:
 lint:
 	golangci-lint run --disable-all --enable=goimports --enable=golint --enable=govet --enable=errcheck --enable=staticcheck
 
+up:
+	$(DOCKER_COMPOSE) up
