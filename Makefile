@@ -6,6 +6,8 @@ BINARY_NAME=esmini
 BINARY_UNIX=$(BINARY_NAME)_unix
 DOCKER_COMPOSE=docker-compose
 
+.PHONY: build test examples clean lint up
+
 build:
 	$(GOBUILD) -o $(BINARY_NAME) -v
 

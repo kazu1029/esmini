@@ -4,8 +4,6 @@ WORKDIR /go/src/esmini
 
 COPY . /go/src/esmini
 
-ENV GO111MODULE=on
-
 RUN apk add --no-cache \
       alpine-sdk \
       git

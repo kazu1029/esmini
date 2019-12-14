@@ -2,7 +2,9 @@ package esmini
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -11,6 +13,14 @@ import (
 
 func (i *IndexClient) deleteIndex(index string) {
 	_, err := i.DeleteIndex(index).Do(context.TODO())
+	if err != nil {
+		panic(err)
+	}
+	i.Stop()
+}
+
+func (i *IndexClient) deleteTemplate(tempName string) {
+	_, err := i.IndexDeleteTemplate(tempName).Do(context.TODO())
 	if err != nil {
 		panic(err)
 	}
@@ -124,7 +134,8 @@ func TestCreateTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer client.Stop()
+	tempName := "tweet-template"
+	defer client.deleteTemplate(tempName)
 
 	const template = `
   {
@@ -160,7 +171,7 @@ func TestCreateTemplate(t *testing.T) {
   }
   `
 
-	if err := client.CreateTemplate(context.TODO(), "tweet-template", template); err != nil {
+	if _, err := client.CreateTemplate(context.TODO(), tempName, template); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -189,30 +200,36 @@ func TestBulkInsert(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	docs := []interface{}{
+	tweets := []tweet{
 		tweet{User: "user1", Message: "message1", Retweets: 1, Image: "image1", Created: time.Now(), Tags: []string{"tag1", "tag2"}, Location: "Tokyo"},
 		tweet{User: "user2", Message: "message2", Retweets: 2, Image: "image2", Created: time.Now(), Tags: []string{"tag1", "tag2"}, Location: "Tokyo"},
 	}
-	if err := client.BulkInsert(context.TODO(), index, docs, Pipeline("sample")); err != nil {
+
+	docs := make([]interface{}, len(tweets))
+	for i, v := range tweets {
+		docs[i] = v
+	}
+
+	bulkRes, err := client.BulkInsert(context.TODO(), index, docs)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	res, err := client.Search().
-		Index(index).
-		Query(elastic.NewMatchAllQuery()).
-		Size(2).
+	res, err := client.MultiGet().
+		Add(elastic.NewMultiGetItem().Index(index).Id(bulkRes.Items[0]["index"].Id)).
+		Add(elastic.NewMultiGetItem().Index(index).Id(bulkRes.Items[1]["index"].Id)).
 		Do(context.TODO())
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	for _, doc := range res.Hits.Hits {
+	for i, doc := range res.Docs {
 		var tw tweet
-		// if err := json.Unmarshal(doc.Source, &tw); err != nil {
-		// 	t.Fatal(err)
-		// }
-		fmt.Printf("tweet: %v\n", tw)
+		if err := json.Unmarshal(doc.Source, &tw); err != nil {
+			t.Fatal(err)
+		}
+		reflect.DeepEqual(tw, tweets[i])
 	}
 
 	client.deleteIndex(index)

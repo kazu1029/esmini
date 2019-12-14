@@ -29,7 +29,7 @@ services:
     networks:
       - esnet
   kibana:
-    build: ./docker/kibana
+    image: docker.elastic.co/kibana/kibana:6.8.1
     container_name: 'kibana'
     links:
       - es01:elasticsearch

@@ -13,68 +13,58 @@ type IndexClient struct {
 func New(options ...elastic.ClientOptionFunc) (*IndexClient, error) {
 	client, err := elastic.NewClient(options...)
 	if err != nil {
-		return &IndexClient{}, err
+		return nil, err
 	}
 
 	return &IndexClient{client}, nil
 }
 
 func (i *IndexClient) Create(ctx context.Context, index string) (*elastic.IndicesCreateResult, error) {
-	createIndex, err := i.CreateIndex(index).Do(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return createIndex, nil
+	return i.CreateIndex(index).Do(ctx)
 }
 
 func (i *IndexClient) CreateIndexWithMapping(ctx context.Context, index, mapping string) (*elastic.IndicesCreateResult, error) {
-	res, err := i.CreateIndex(index).
+	return i.CreateIndex(index).
 		BodyJson(mapping).
 		Do(ctx)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return res, nil
 }
 
-func (i *IndexClient) CreateTemplate(ctx context.Context, tempName, template string) error {
-	if _, err := i.IndexPutTemplate(tempName).BodyString(template).Do(ctx); err != nil {
-		return err
-	}
-	return nil
+func (i *IndexClient) CreateTemplate(ctx context.Context, tempName, template string) (*elastic.IndicesPutTemplateResponse, error) {
+	return i.IndexPutTemplate(tempName).
+		BodyString(template).
+		Do(ctx)
 }
 
-type BulkOption struct {
+type bulkOption struct {
 	pipeline string
 }
 
-type option func(*BulkOption)
+type BulkOption func(*bulkOption)
 
-func Pipeline(pipeline string) option {
-	return func(b *BulkOption) {
+func Pipeline(pipeline string) BulkOption {
+	return func(b *bulkOption) {
 		b.pipeline = pipeline
 	}
 }
 
-func (i *IndexClient) BulkInsert(ctx context.Context, index string, docs []interface{}, opts ...option) error {
-	bulkOption := &BulkOption{}
+func (i *IndexClient) BulkInsert(ctx context.Context, index string, docs []interface{}, opts ...BulkOption) (*elastic.BulkResponse, error) {
+	bulkOpt := &bulkOption{}
 	for _, opt := range opts {
-		opt(bulkOption)
+		opt(bulkOpt)
 	}
 
 	bulk := i.Bulk().
 		Index(index).
-		Pipeline(bulkOption.pipeline)
+		Pipeline(bulkOpt.pipeline)
 
 	for _, d := range docs {
 		bulk = bulk.Add(elastic.NewBulkIndexRequest().Index(index).Doc(d))
 	}
 
-	if _, err := bulk.Do(ctx); err != nil {
-		return err
+	res, err := bulk.Do(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	return res, nil
 }
