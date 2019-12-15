@@ -3,13 +3,14 @@ package esmini
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/olivere/elastic/v7"
 )
+
+const ES_HOST = "http://es01:9200"
 
 func (i *IndexClient) deleteIndex(index string) {
 	_, err := i.DeleteIndex(index).Do(context.TODO())
@@ -28,38 +29,38 @@ func (i *IndexClient) deleteTemplate(tempName string) {
 }
 
 func TestNew(t *testing.T) {
-	client, err := New(elastic.SetURL("http://es01:9200"))
+	client, err := New(elastic.SetURL(ES_HOST))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf(err.Error())
 	}
 	defer client.Stop()
 	ctx := context.TODO()
-	_, code, err := client.Ping("http://es01:9200").Do(ctx)
+	_, code, err := client.Ping(ES_HOST).Do(ctx)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf(err.Error())
 	}
 	if code != 200 {
-		t.Errorf("code must be 200, but got %d\n", code)
+		t.Fatalf("code must be 200, but got %d\n", code)
 	}
 }
 
 func TestCreate(t *testing.T) {
-	client, err := New(elastic.SetURL("http://es01:9200"))
+	client, err := New(elastic.SetURL(ES_HOST))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf(err.Error())
 	}
 	index := "tweet"
 	defer client.Stop()
 	createIndex, err := client.Create(context.TODO(), index)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf(err.Error())
 	}
 	if !createIndex.Acknowledged {
 		t.Errorf("expected Acknowledged true, but got false")
 	}
 	indexExists, err := client.IndexExists(index).Do(context.TODO())
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf(err.Error())
 	}
 	if !indexExists {
 		t.Errorf("expected index exists, but does not exist")
@@ -70,9 +71,9 @@ func TestCreate(t *testing.T) {
 
 func TestCreateIndexWithMapping(t *testing.T) {
 	index := "tweets"
-	client, err := New(elastic.SetURL("http://es01:9200"))
+	client, err := New(elastic.SetURL(ES_HOST))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf(err.Error())
 	}
 	defer client.Stop()
 
@@ -110,19 +111,19 @@ func TestCreateIndexWithMapping(t *testing.T) {
   }`
 	exists, err := client.IndexExists(index).Do(context.TODO())
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf(err.Error())
 	}
 
 	if !exists {
 		if _, err := client.CreateIndexWithMapping(context.TODO(), index, mapping); err != nil {
-			t.Fatal(err)
+			t.Fatalf(err.Error())
 		}
 		exists, err = client.IndexExists(index).Do(context.TODO())
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf(err.Error())
 		}
 		if !exists {
-			t.Errorf("expected index created, but not created")
+			t.Fatalf("expected index created, but not created")
 		}
 	}
 
@@ -130,9 +131,9 @@ func TestCreateIndexWithMapping(t *testing.T) {
 }
 
 func TestCreateTemplate(t *testing.T) {
-	client, err := New(elastic.SetURL("http://es01:9200"))
+	client, err := New(elastic.SetURL(ES_HOST))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf(err.Error())
 	}
 	tempName := "tweet-template"
 	defer client.deleteTemplate(tempName)
@@ -172,7 +173,7 @@ func TestCreateTemplate(t *testing.T) {
   `
 
 	if _, err := client.CreateTemplate(context.TODO(), tempName, template); err != nil {
-		t.Fatal(err)
+		t.Fatalf(err.Error())
 	}
 }
 
@@ -187,9 +188,9 @@ type tweet struct {
 }
 
 func TestBulkInsert(t *testing.T) {
-	client, err := New(elastic.SetURL("http://es01:9200"))
+	client, err := New(elastic.SetURL(ES_HOST))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf(err.Error())
 	}
 
 	index := "tweets"
@@ -197,7 +198,7 @@ func TestBulkInsert(t *testing.T) {
 
 	_, err = client.Create(context.TODO(), index)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf(err.Error())
 	}
 
 	tweets := []tweet{
@@ -212,7 +213,7 @@ func TestBulkInsert(t *testing.T) {
 
 	bulkRes, err := client.BulkInsert(context.TODO(), index, docs)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf(err.Error())
 	}
 
 	res, err := client.MultiGet().
@@ -221,43 +222,16 @@ func TestBulkInsert(t *testing.T) {
 		Do(context.TODO())
 
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf(err.Error())
 	}
 
 	for i, doc := range res.Docs {
 		var tw tweet
 		if err := json.Unmarshal(doc.Source, &tw); err != nil {
-			t.Fatal(err)
+			t.Fatalf(err.Error())
 		}
 		reflect.DeepEqual(tw, tweets[i])
 	}
 
 	client.deleteIndex(index)
-}
-
-func ExampleNew() {
-	urls := []string{"http://es01:9200", "http://es02:9200"}
-	client, err := New(
-		elastic.SetURL(urls...),
-	)
-
-	if err != nil {
-		panic(err)
-	}
-
-	defer client.Stop()
-
-	for _, url := range urls {
-		ctx := context.Background()
-		info, code, err := client.Ping(url).Do(ctx)
-
-		if err != nil {
-			panic(err)
-		}
-
-		// Output:
-		// elastic client http://es01:9200 returned with code 200 and version 7.4.2
-		// elastic client http://es02:9200 returned with code 200 and version 7.4.2
-		fmt.Printf("elastic client %s returned with code %d and version %s\n", url, code, info.Version.Number)
-	}
 }
