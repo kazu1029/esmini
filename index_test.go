@@ -10,7 +10,7 @@ import (
 	"github.com/olivere/elastic/v7"
 )
 
-const ES_HOST = "http://es01:9200"
+const EsHost = "http://es01:9200"
 
 func (i *IndexClient) deleteIndex(index string) {
 	_, err := i.DeleteIndex(index).Do(context.TODO())
@@ -29,15 +29,15 @@ func (i *IndexClient) deleteTemplate(tempName string) {
 }
 
 func TestNew(t *testing.T) {
-	client, err := New(elastic.SetURL(ES_HOST))
+	client, err := New(elastic.SetURL(EsHost))
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 	defer client.Stop()
 	ctx := context.TODO()
-	_, code, err := client.Ping(ES_HOST).Do(ctx)
+	_, code, err := client.Ping(EsHost).Do(ctx)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 	if code != 200 {
 		t.Fatalf("code must be 200, but got %d\n", code)
@@ -45,25 +45,25 @@ func TestNew(t *testing.T) {
 }
 
 func TestCreate(t *testing.T) {
-	client, err := New(elastic.SetURL(ES_HOST))
+	client, err := New(elastic.SetURL(EsHost))
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 	index := "tweet"
 	defer client.Stop()
 	createIndex, err := client.Create(context.TODO(), index)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 	if !createIndex.Acknowledged {
 		t.Errorf("expected Acknowledged true, but got false")
 	}
 	indexExists, err := client.IndexExists(index).Do(context.TODO())
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 	if !indexExists {
-		t.Errorf("expected index exists, but does not exist")
+		t.Error("expected index exists, but does not exist")
 	}
 
 	client.deleteIndex(index)
@@ -71,9 +71,9 @@ func TestCreate(t *testing.T) {
 
 func TestCreateIndexWithMapping(t *testing.T) {
 	index := "tweets"
-	client, err := New(elastic.SetURL(ES_HOST))
+	client, err := New(elastic.SetURL(EsHost))
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 	defer client.Stop()
 
@@ -85,45 +85,28 @@ func TestCreateIndexWithMapping(t *testing.T) {
       },
       "mappings":{
         "properties":{
-          "user":{
+          "foo":{
             "type":"keyword"
-          },
-          "message":{
-            "type":"text",
-            "store": true,
-            "fielddata": true
-          },
-          "image":{
-            "type":"keyword"
-          },
-          "created":{
-            "type":"date"
-          },
-          "tags":{
-            "type":"keyword"
-          },
-          "location":{
-            "type":"geo_point"
           }
-        }
+				}
       }
     }
   }`
 	exists, err := client.IndexExists(index).Do(context.TODO())
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	if !exists {
 		if _, err := client.CreateIndexWithMapping(context.TODO(), index, mapping); err != nil {
-			t.Fatalf(err.Error())
+			t.Fatal(err)
 		}
 		exists, err = client.IndexExists(index).Do(context.TODO())
 		if err != nil {
-			t.Fatalf(err.Error())
+			t.Fatal(err)
 		}
 		if !exists {
-			t.Fatalf("expected index created, but not created")
+			t.Fatal("expected index created, but not created")
 		}
 	}
 
@@ -131,41 +114,24 @@ func TestCreateIndexWithMapping(t *testing.T) {
 }
 
 func TestCreateTemplate(t *testing.T) {
-	client, err := New(elastic.SetURL(ES_HOST))
+	client, err := New(elastic.SetURL(EsHost))
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 	tempName := "tweet-template"
 	defer client.deleteTemplate(tempName)
 
 	const template = `
   {
-    "index_patterns": ["tweet*"],
+    "index_patterns": ["foo*"],
     "settings": {
       "number_of_shards": 1,
       "number_of_replicas": 0
     },
     "mappings": {
       "properties": {
-        "user":{
+        "name":{
           "type":"keyword"
-       },
-       "message":{
-         "type":"text",
-         "store": true,
-         "fielddata": true
-        },
-        "image":{
-          "type":"keyword"
-        },
-        "created":{
-          "type":"date"
-        },
-        "tags":{
-          "type":"keyword"
-        },
-        "location":{
-          "type":"geo_point"
         }
       }
     }
@@ -173,7 +139,7 @@ func TestCreateTemplate(t *testing.T) {
   `
 
 	if _, err := client.CreateTemplate(context.TODO(), tempName, template); err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 }
 
@@ -188,9 +154,9 @@ type tweet struct {
 }
 
 func TestBulkInsert(t *testing.T) {
-	client, err := New(elastic.SetURL(ES_HOST))
+	client, err := New(elastic.SetURL(EsHost))
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	index := "tweets"
@@ -198,7 +164,7 @@ func TestBulkInsert(t *testing.T) {
 
 	_, err = client.Create(context.TODO(), index)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	tweets := []tweet{
@@ -213,7 +179,7 @@ func TestBulkInsert(t *testing.T) {
 
 	bulkRes, err := client.BulkInsert(context.TODO(), index, docs)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	res, err := client.MultiGet().
@@ -222,13 +188,13 @@ func TestBulkInsert(t *testing.T) {
 		Do(context.TODO())
 
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
 	for i, doc := range res.Docs {
 		var tw tweet
 		if err := json.Unmarshal(doc.Source, &tw); err != nil {
-			t.Fatalf(err.Error())
+			t.Fatal(err)
 		}
 		reflect.DeepEqual(tw, tweets[i])
 	}

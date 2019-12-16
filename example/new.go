@@ -9,12 +9,12 @@ import (
 )
 
 const (
-	ES_HOST1 = "http://es01:9200"
-	ES_HOST2 = "http://es02:9200"
+	EsHost1 = "http://es01:9200"
+	EsHost2 = "http://es02:9200"
 )
 
 func ExampleNew() {
-	urls := []string{ES_HOST1, ES_HOST2}
+	urls := []string{EsHost1, EsHost2}
 	client, err := esmini.New(
 		elastic.SetURL(urls...),
 	)
