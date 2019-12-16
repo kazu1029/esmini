@@ -1,6 +1,7 @@
 package esmini
 
 import (
+	"container/list"
 	"context"
 	"encoding/json"
 	"reflect"
@@ -167,17 +168,11 @@ func TestBulkInsert(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tweets := []tweet{
-		tweet{User: "user1", Message: "message1", Retweets: 1, Image: "image1", Created: time.Now(), Tags: []string{"tag1", "tag2"}, Location: "Tokyo"},
-		tweet{User: "user2", Message: "message2", Retweets: 2, Image: "image2", Created: time.Now(), Tags: []string{"tag1", "tag2"}, Location: "Tokyo"},
-	}
+	tweets := list.New()
+	tweets.PushFront(tweet{User: "user1", Message: "message1", Retweets: 1, Image: "image1", Created: time.Now(), Tags: []string{"tag1", "tag2"}, Location: "Tokyo"})
+	tweets.PushBack(tweet{User: "user2", Message: "message2", Retweets: 2, Image: "image2", Created: time.Now(), Tags: []string{"tag1", "tag2"}, Location: "Tokyo"})
 
-	docs := make([]interface{}, len(tweets))
-	for i, v := range tweets {
-		docs[i] = v
-	}
-
-	bulkRes, err := client.BulkInsert(context.TODO(), index, docs)
+	bulkRes, err := client.BulkInsert(context.TODO(), index, tweets)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,12 +186,14 @@ func TestBulkInsert(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for i, doc := range res.Docs {
+	i := 0
+	for e := tweets.Front(); e != nil; e = e.Next() {
 		var tw tweet
-		if err := json.Unmarshal(doc.Source, &tw); err != nil {
+		if err := json.Unmarshal(res.Docs[i].Source, &tw); err != nil {
 			t.Fatal(err)
 		}
-		reflect.DeepEqual(tw, tweets[i])
+		reflect.DeepEqual(e.Value, tw)
+		i++
 	}
 
 	client.deleteIndex(index)

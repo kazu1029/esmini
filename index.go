@@ -1,6 +1,7 @@
 package esmini
 
 import (
+	"container/list"
 	"context"
 
 	"github.com/olivere/elastic/v7"
@@ -47,7 +48,7 @@ func Pipeline(pipeline string) BulkOption {
 	}
 }
 
-func (i *IndexClient) BulkInsert(ctx context.Context, index string, docs []interface{}, opts ...BulkOption) (*elastic.BulkResponse, error) {
+func (i *IndexClient) BulkInsert(ctx context.Context, index string, docs *list.List, opts ...BulkOption) (*elastic.BulkResponse, error) {
 	bulkOpt := &bulkOption{}
 	for _, opt := range opts {
 		opt(bulkOpt)
@@ -57,7 +58,7 @@ func (i *IndexClient) BulkInsert(ctx context.Context, index string, docs []inter
 		Index(index).
 		Pipeline(bulkOpt.pipeline)
 
-	for _, d := range docs {
+	for d := docs.Front(); d != nil; d = d.Next() {
 		bulk = bulk.Add(elastic.NewBulkIndexRequest().Index(index).Doc(d))
 	}
 
