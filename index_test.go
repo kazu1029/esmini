@@ -11,10 +11,10 @@ import (
 	"github.com/olivere/elastic/v7"
 )
 
-const EsHost = "http://es01:9200"
+const ElasticSearchHost = "http://es01:9200"
 
 func (i *IndexClient) deleteIndex(index string) {
-	_, err := i.DeleteIndex(index).Do(context.TODO())
+	_, err := i.client.DeleteIndex(index).Do(context.TODO())
 	if err != nil {
 		panic(err)
 	}
@@ -22,7 +22,7 @@ func (i *IndexClient) deleteIndex(index string) {
 }
 
 func (i *IndexClient) deleteTemplate(tempName string) {
-	_, err := i.IndexDeleteTemplate(tempName).Do(context.TODO())
+	_, err := i.client.IndexDeleteTemplate(tempName).Do(context.TODO())
 	if err != nil {
 		panic(err)
 	}
@@ -30,13 +30,13 @@ func (i *IndexClient) deleteTemplate(tempName string) {
 }
 
 func TestNew(t *testing.T) {
-	client, err := New(elastic.SetURL(EsHost))
+	client, err := New(elastic.SetURL(ElasticSearchHost))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer client.Stop()
 	ctx := context.TODO()
-	_, code, err := client.Ping(EsHost).Do(ctx)
+	_, code, err := client.Ping(ctx, ElasticSearchHost)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,21 +45,21 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestCreate(t *testing.T) {
-	client, err := New(elastic.SetURL(EsHost))
+func TestCreateIndex(t *testing.T) {
+	client, err := New(elastic.SetURL(ElasticSearchHost))
 	if err != nil {
 		t.Fatal(err)
 	}
 	index := "tweet"
 	defer client.Stop()
-	createIndex, err := client.Create(context.TODO(), index)
+	createIndex, err := client.CreateIndex(context.TODO(), index)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !createIndex.Acknowledged {
 		t.Errorf("expected Acknowledged true, but got false")
 	}
-	indexExists, err := client.IndexExists(index).Do(context.TODO())
+	indexExists, err := client.client.IndexExists(index).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestCreate(t *testing.T) {
 
 func TestCreateIndexWithMapping(t *testing.T) {
 	index := "tweets"
-	client, err := New(elastic.SetURL(EsHost))
+	client, err := New(elastic.SetURL(ElasticSearchHost))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestCreateIndexWithMapping(t *testing.T) {
       }
     }
   }`
-	exists, err := client.IndexExists(index).Do(context.TODO())
+	exists, err := client.client.IndexExists(index).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +102,7 @@ func TestCreateIndexWithMapping(t *testing.T) {
 		if _, err := client.CreateIndexWithMapping(context.TODO(), index, mapping); err != nil {
 			t.Fatal(err)
 		}
-		exists, err = client.IndexExists(index).Do(context.TODO())
+		exists, err = client.client.IndexExists(index).Do(context.TODO())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -115,7 +115,7 @@ func TestCreateIndexWithMapping(t *testing.T) {
 }
 
 func TestCreateTemplate(t *testing.T) {
-	client, err := New(elastic.SetURL(EsHost))
+	client, err := New(elastic.SetURL(ElasticSearchHost))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,17 +145,14 @@ func TestCreateTemplate(t *testing.T) {
 }
 
 type tweet struct {
-	User     string    `json:"user"`
 	Message  string    `json:"message"`
 	Retweets int       `json:"retweets"`
-	Image    string    `json:"image,omitempty"`
 	Created  time.Time `json:"created,omitempty"`
 	Tags     []string  `json:"tags,omitempty"`
-	Location string    `json:"location,omitempty"`
 }
 
 func TestBulkInsert(t *testing.T) {
-	client, err := New(elastic.SetURL(EsHost))
+	client, err := New(elastic.SetURL(ElasticSearchHost))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,21 +160,21 @@ func TestBulkInsert(t *testing.T) {
 	index := "tweets"
 	defer client.Stop()
 
-	_, err = client.Create(context.TODO(), index)
+	_, err = client.client.CreateIndex(index).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	tweets := list.New()
-	tweets.PushFront(tweet{User: "user1", Message: "message1", Retweets: 1, Image: "image1", Created: time.Now(), Tags: []string{"tag1", "tag2"}, Location: "Tokyo"})
-	tweets.PushBack(tweet{User: "user2", Message: "message2", Retweets: 2, Image: "image2", Created: time.Now(), Tags: []string{"tag1", "tag2"}, Location: "Tokyo"})
+	tweets.PushBack(tweet{Message: "message1", Retweets: 1, Created: time.Now(), Tags: []string{"tag1", "tag2"}})
+	tweets.PushBack(tweet{Message: "message2", Retweets: 2, Created: time.Now(), Tags: []string{"tag1", "tag2"}})
 
 	bulkRes, err := client.BulkInsert(context.TODO(), index, tweets)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	res, err := client.MultiGet().
+	res, err := client.client.MultiGet().
 		Add(elastic.NewMultiGetItem().Index(index).Id(bulkRes.Items[0]["index"].Id)).
 		Add(elastic.NewMultiGetItem().Index(index).Id(bulkRes.Items[1]["index"].Id)).
 		Do(context.TODO())
@@ -192,7 +189,10 @@ func TestBulkInsert(t *testing.T) {
 		if err := json.Unmarshal(res.Docs[i].Source, &tw); err != nil {
 			t.Fatal(err)
 		}
-		reflect.DeepEqual(e.Value, tw)
+		expected := e.Value.(tweet)
+		if !reflect.DeepEqual(expected, tw) {
+			t.Fatalf("expected %v, but got %v\n", expected, tw)
+		}
 		i++
 	}
 

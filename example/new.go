@@ -9,12 +9,12 @@ import (
 )
 
 const (
-	EsHost1 = "http://es01:9200"
-	EsHost2 = "http://es02:9200"
+	ElasticSearchHost1 = "http://es01:9200"
+	ElasticSearchHost2 = "http://es02:9200"
 )
 
 func ExampleNew() {
-	urls := []string{EsHost1, EsHost2}
+	urls := []string{ElasticSearchHost1, ElasticSearchHost2}
 	client, err := esmini.New(
 		elastic.SetURL(urls...),
 	)
@@ -27,7 +27,7 @@ func ExampleNew() {
 
 	for _, url := range urls {
 		ctx := context.Background()
-		info, code, err := client.Ping(url).Do(ctx)
+		info, code, err := client.Ping(ctx, url)
 
 		if err != nil {
 			panic(err)

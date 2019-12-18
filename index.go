@@ -8,7 +8,7 @@ import (
 )
 
 type IndexClient struct {
-	*elastic.Client
+	client *elastic.Client
 }
 
 func New(options ...elastic.ClientOptionFunc) (*IndexClient, error) {
@@ -17,21 +17,21 @@ func New(options ...elastic.ClientOptionFunc) (*IndexClient, error) {
 		return nil, err
 	}
 
-	return &IndexClient{client}, nil
+	return &IndexClient{client: client}, nil
 }
 
-func (i *IndexClient) Create(ctx context.Context, index string) (*elastic.IndicesCreateResult, error) {
-	return i.CreateIndex(index).Do(ctx)
+func (i *IndexClient) CreateIndex(ctx context.Context, index string) (*elastic.IndicesCreateResult, error) {
+	return i.client.CreateIndex(index).Do(ctx)
 }
 
 func (i *IndexClient) CreateIndexWithMapping(ctx context.Context, index, mapping string) (*elastic.IndicesCreateResult, error) {
-	return i.CreateIndex(index).
+	return i.client.CreateIndex(index).
 		BodyJson(mapping).
 		Do(ctx)
 }
 
 func (i *IndexClient) CreateTemplate(ctx context.Context, tempName, template string) (*elastic.IndicesPutTemplateResponse, error) {
-	return i.IndexPutTemplate(tempName).
+	return i.client.IndexPutTemplate(tempName).
 		BodyString(template).
 		Do(ctx)
 }
@@ -54,12 +54,12 @@ func (i *IndexClient) BulkInsert(ctx context.Context, index string, docs *list.L
 		opt(bulkOpt)
 	}
 
-	bulk := i.Bulk().
+	bulk := i.client.Bulk().
 		Index(index).
 		Pipeline(bulkOpt.pipeline)
 
 	for d := docs.Front(); d != nil; d = d.Next() {
-		bulk = bulk.Add(elastic.NewBulkIndexRequest().Index(index).Doc(d))
+		bulk = bulk.Add(elastic.NewBulkIndexRequest().Index(index).Doc(d.Value))
 	}
 
 	res, err := bulk.Do(ctx)
@@ -68,4 +68,12 @@ func (i *IndexClient) BulkInsert(ctx context.Context, index string, docs *list.L
 	}
 
 	return res, nil
+}
+
+func (i *IndexClient) Ping(ctx context.Context, host string) (*elastic.PingResult, int, error) {
+	return i.client.Ping(host).Do(ctx)
+}
+
+func (i *IndexClient) Stop() {
+	i.client.Stop()
 }
