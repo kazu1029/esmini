@@ -14,7 +14,7 @@ import (
 const ElasticSearchHost = "http://es01:9200"
 
 func (i *IndexClient) deleteIndex(index string) {
-	_, err := i.client.DeleteIndex(index).Do(context.TODO())
+	_, err := i.raw.DeleteIndex(index).Do(context.TODO())
 	if err != nil {
 		panic(err)
 	}
@@ -22,7 +22,7 @@ func (i *IndexClient) deleteIndex(index string) {
 }
 
 func (i *IndexClient) deleteTemplate(tempName string) {
-	_, err := i.client.IndexDeleteTemplate(tempName).Do(context.TODO())
+	_, err := i.raw.IndexDeleteTemplate(tempName).Do(context.TODO())
 	if err != nil {
 		panic(err)
 	}
@@ -59,7 +59,7 @@ func TestCreateIndex(t *testing.T) {
 	if !createIndex.Acknowledged {
 		t.Errorf("expected Acknowledged true, but got false")
 	}
-	indexExists, err := client.client.IndexExists(index).Do(context.TODO())
+	indexExists, err := client.raw.IndexExists(index).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestCreateIndexWithMapping(t *testing.T) {
       }
     }
   }`
-	exists, err := client.client.IndexExists(index).Do(context.TODO())
+	exists, err := client.raw.IndexExists(index).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +102,7 @@ func TestCreateIndexWithMapping(t *testing.T) {
 		if _, err := client.CreateIndexWithMapping(context.TODO(), index, mapping); err != nil {
 			t.Fatal(err)
 		}
-		exists, err = client.client.IndexExists(index).Do(context.TODO())
+		exists, err = client.raw.IndexExists(index).Do(context.TODO())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -160,7 +160,7 @@ func TestBulkInsert(t *testing.T) {
 	index := "tweets"
 	defer client.Stop()
 
-	_, err = client.client.CreateIndex(index).Do(context.TODO())
+	_, err = client.raw.CreateIndex(index).Do(context.TODO())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,7 +174,7 @@ func TestBulkInsert(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err := client.client.MultiGet().
+	res, err := client.raw.MultiGet().
 		Add(elastic.NewMultiGetItem().Index(index).Id(bulkRes.Items[0]["index"].Id)).
 		Add(elastic.NewMultiGetItem().Index(index).Id(bulkRes.Items[1]["index"].Id)).
 		Do(context.TODO())
@@ -189,9 +189,22 @@ func TestBulkInsert(t *testing.T) {
 		if err := json.Unmarshal(res.Docs[i].Source, &tw); err != nil {
 			t.Fatal(err)
 		}
-		expected := e.Value.(tweet)
-		if !reflect.DeepEqual(expected, tw) {
-			t.Fatalf("expected %v, but got %v\n", expected, tw)
+		expected, ok := e.Value.(tweet)
+		if !ok {
+			t.Fatalf("expected %v, but got %v\n", reflect.TypeOf(expected), reflect.TypeOf(tw))
+		}
+		if expected.Message != tw.Message {
+			t.Fatalf("expected %v, but got %v\n", expected.Message, tw.Message)
+		}
+		if expected.Retweets != tw.Retweets {
+			t.Fatalf("expected %v, but got %v\n", expected.Retweets, tw.Retweets)
+		}
+		var expectedElapsed float64 = 0
+		if expected.Created.Sub(tw.Created).Seconds() != expectedElapsed {
+			t.Fatalf("expected %v, but got %v\n", expected.Created, tw.Created)
+		}
+		if !reflect.DeepEqual(expected.Tags, tw.Tags) {
+			t.Fatalf("expected %v, but got %v\n", expected.Tags, tw.Tags)
 		}
 		i++
 	}
