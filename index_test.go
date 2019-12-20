@@ -199,8 +199,7 @@ func TestBulkInsert(t *testing.T) {
 		if expected.Retweets != tw.Retweets {
 			t.Fatalf("expected %v, but got %v\n", expected.Retweets, tw.Retweets)
 		}
-		var expectedElapsed float64 = 0
-		if expected.Created.Sub(tw.Created).Seconds() != expectedElapsed {
+		if !expected.Created.Equal(tw.Created) {
 			t.Fatalf("expected %v, but got %v\n", expected.Created, tw.Created)
 		}
 		if !reflect.DeepEqual(expected.Tags, tw.Tags) {
