@@ -24,12 +24,12 @@ const (
 	Desc
 )
 
-const DefaultLimit = 100
-const DefaultPage = 0
+const DefaultSize = 100
+const DefaultStartLoc = 0
 
 type SearchOption struct {
-	limit     int
-	page      int
+	size      int
+	startLoc  int
 	sortField string
 	order     SearchOrder
 	matchTyp  string
@@ -37,15 +37,15 @@ type SearchOption struct {
 
 type option func(*SearchOption)
 
-func Limit(limit int) option {
+func Limit(size int) option {
 	return func(s *SearchOption) {
-		s.limit = limit
+		s.size = size
 	}
 }
 
-func Page(page int) option {
+func Page(startLoc int) option {
 	return func(s *SearchOption) {
-		s.page = page
+		s.startLoc = startLoc
 	}
 }
 
@@ -75,8 +75,8 @@ func NewSearch(client *IndexClient) *SearchClient {
 
 func (s *SearchClient) Search(ctx context.Context, index string, searchText interface{}, targetFields []string, opts ...option) (SearchResponse, error) {
 	sOpt := &SearchOption{
-		limit: DefaultLimit,
-		page:  DefaultPage,
+		size:     DefaultSize,
+		startLoc: DefaultStartLoc,
 	}
 	for _, opt := range opts {
 		opt(sOpt)
@@ -101,13 +101,13 @@ func (s *SearchClient) Search(ctx context.Context, index string, searchText inte
 			Index(index).
 			Query(query).
 			SortBy(sortQuery).
-			From(sOpt.page).Size(sOpt.limit).
+			From(sOpt.startLoc).Size(sOpt.size).
 			Do(ctx)
 	} else {
 		res, err = s.iClient.raw.Search().
 			Index(index).
 			Query(query).
-			From(sOpt.page).Size(sOpt.limit).
+			From(sOpt.startLoc).Size(sOpt.size).
 			Do(ctx)
 	}
 
