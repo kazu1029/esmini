@@ -80,7 +80,7 @@ func setupIteratorTestData(t *testing.T) *SearchResultIterator {
 
 	iterator := &SearchResultIterator{
 		array: []json.RawMessage{json.RawMessage(tw1), json.RawMessage(tw2), json.RawMessage(tw3)},
-		index: 3,
+		index: 0,
 	}
 
 	return iterator
@@ -109,7 +109,7 @@ func TestSearch(t *testing.T) {
 
 	setupTestData(t, client.raw)
 
-	sClient := NewSearch(client)
+	sClient := NewSearchClient(client)
 
 	for _, tt := range testCases {
 		t.Run(tt.query, func(t *testing.T) {
@@ -152,6 +152,7 @@ func TestIndex(t *testing.T) {
 			fmt.Printf("expected %v, but got %v\n", expected[i], res.Index())
 		}
 
+		_ = res.Next(tweet{})
 		i++
 	}
 }

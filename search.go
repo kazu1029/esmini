@@ -27,54 +27,54 @@ const (
 const DefaultSize = 100
 const DefaultStartLoc = 0
 
-type SearchOption struct {
+type searchOption struct {
 	size      int
 	startLoc  int
 	sortField string
 	order     SearchOrder
-	matchTyp  string
+	matchType string
 }
 
-type option func(*SearchOption)
+type SearchOption func(*searchOption)
 
-func Limit(size int) option {
-	return func(s *SearchOption) {
+func Limit(size int) SearchOption {
+	return func(s *searchOption) {
 		s.size = size
 	}
 }
 
-func Page(startLoc int) option {
-	return func(s *SearchOption) {
+func Page(startLoc int) SearchOption {
+	return func(s *searchOption) {
 		s.startLoc = startLoc
 	}
 }
 
-func SortField(sortField string) option {
-	return func(s *SearchOption) {
+func SortField(sortField string) SearchOption {
+	return func(s *searchOption) {
 		s.sortField = sortField
 	}
 }
 
-func Order(order SearchOrder) option {
-	return func(s *SearchOption) {
+func Order(order SearchOrder) SearchOption {
+	return func(s *searchOption) {
 		s.order = order
 	}
 }
 
-func MatchTyp(matchTyp string) option {
-	return func(s *SearchOption) {
-		s.matchTyp = matchTyp
+func MatchTyp(matchType string) SearchOption {
+	return func(s *searchOption) {
+		s.matchType = matchType
 	}
 }
 
-func NewSearch(client *IndexClient) *SearchClient {
+func NewSearchClient(client *IndexClient) *SearchClient {
 	return &SearchClient{
 		iClient: client,
 	}
 }
 
-func (s *SearchClient) Search(ctx context.Context, index string, searchText interface{}, targetFields []string, opts ...option) (SearchResponse, error) {
-	sOpt := &SearchOption{
+func (s *SearchClient) Search(ctx context.Context, index string, searchText interface{}, targetFields []string, opts ...SearchOption) (SearchResponse, error) {
+	sOpt := &searchOption{
 		size:     DefaultSize,
 		startLoc: DefaultStartLoc,
 	}
@@ -83,7 +83,7 @@ func (s *SearchClient) Search(ctx context.Context, index string, searchText inte
 	}
 
 	query := elastic.NewMultiMatchQuery(searchText, targetFields...).
-		Type(sOpt.matchTyp).
+		Type(sOpt.matchType).
 		Fuzziness("AUTO").
 		MinimumShouldMatch("2")
 
@@ -151,7 +151,6 @@ func (i *SearchResultIterator) Next(v interface{}) error {
 		_ = json.Unmarshal(bytes, v)
 		i.index++
 		return nil
-	} else {
-		return errors.New("No next value")
 	}
+	return errors.New("No next value")
 }
