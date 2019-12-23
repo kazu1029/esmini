@@ -14,7 +14,7 @@ type SearchClient struct {
 
 type SearchResponse struct {
 	Hits    int64
-	Results []json.RawMessage
+	Sources []json.RawMessage
 }
 
 type SearchOrder int
@@ -120,7 +120,7 @@ func (s *SearchClient) Search(ctx context.Context, index string, searchText inte
 	result.Hits = res.Hits.TotalHits.Value
 
 	for _, hit := range res.Hits.Hits {
-		result.Results = append(result.Results, hit.Source)
+		result.Sources = append(result.Sources, hit.Source)
 	}
 
 	return result, nil
@@ -132,20 +132,20 @@ type Iterator interface {
 	Next(v interface{}) error
 }
 
-type SearchResultIterator struct {
+type searchResultIterator struct {
 	array []json.RawMessage
 	index int
 }
 
-func (i *SearchResultIterator) Index() int {
+func (i *searchResultIterator) Index() int {
 	return i.index
 }
 
-func (i *SearchResultIterator) HasNext() bool {
+func (i *searchResultIterator) HasNext() bool {
 	return i.index != len(i.array)
 }
 
-func (i *SearchResultIterator) Next(v interface{}) error {
+func (i *searchResultIterator) Next(v interface{}) error {
 	if i.HasNext() {
 		bytes := []byte(i.array[i.index])
 		_ = json.Unmarshal(bytes, v)

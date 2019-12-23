@@ -64,7 +64,7 @@ func setupTestData(t *testing.T, client *elastic.Client) {
 	return
 }
 
-func setupIteratorTestData(t *testing.T) *SearchResultIterator {
+func setupTestIterator(t *testing.T) *searchResultIterator {
 	tw1, err := json.Marshal(tweet1)
 	if err != nil {
 		t.Fatal(err)
@@ -78,7 +78,7 @@ func setupIteratorTestData(t *testing.T) *SearchResultIterator {
 		t.Fatal(err)
 	}
 
-	iterator := &SearchResultIterator{
+	iterator := &searchResultIterator{
 		array: []json.RawMessage{json.RawMessage(tw1), json.RawMessage(tw2), json.RawMessage(tw3)},
 		index: 0,
 	}
@@ -118,9 +118,9 @@ func TestSearch(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			for j, row := range res.Results {
+			for j, source := range res.Sources {
 				var tw tweet
-				_ = json.Unmarshal(row, &tw)
+				_ = json.Unmarshal(source, &tw)
 
 				if tt.tweets[j].Message != tw.Message {
 					t.Fatalf("expected %v, but got %v\n", tt.tweets[j].Message, tw.Message)
@@ -141,18 +141,44 @@ func TestSearch(t *testing.T) {
 	client.deleteIndex(index)
 }
 
-func TestIndex(t *testing.T) {
-	res := setupIteratorTestData(t)
+func TestsearchResultIterator(t *testing.T) {
+	iterator := setupTestIterator(t)
 
-	expected := []int{0, 1, 2}
+	expected := []struct {
+		i  int
+		tw tweet
+	}{
+		{0, tweet1},
+		{1, tweet2},
+		{2, tweet3},
+	}
 
-	var i int
-	for res.HasNext() {
-		if expected[i] != res.Index() {
-			fmt.Printf("expected %v, but got %v\n", expected[i], res.Index())
+	for iterator.HasNext() {
+		var v tweet
+		index := iterator.Index()
+		err := iterator.Next(&v)
+		if err != nil {
+			t.Fatal(err)
 		}
 
-		_ = res.Next(tweet{})
-		i++
+		if expected[index].i != index {
+			fmt.Printf("expected %v, but got %v\n", expected[index].i, index)
+		}
+
+		if v.Message != expected[index].tw.Message {
+			t.Fatalf("expected %v, but got %v\n", expected[index].tw.Message, v.Message)
+		}
+
+		if v.Retweets != expected[index].tw.Retweets {
+			t.Fatalf("expected %v, but got %v\n", expected[index].tw.Retweets, v.Retweets)
+		}
+
+		if v.Created.Equal(expected[index].tw.Created) {
+			t.Fatalf("expected %v, but got %v\n", expected[index].tw.Created, v.Created)
+		}
+
+		if !reflect.DeepEqual(v.Tags, expected[index].tw.Tags) {
+			t.Fatalf("expected %v, but got %v\n", expected[index].tw.Tags, v.Tags)
+		}
 	}
 }
