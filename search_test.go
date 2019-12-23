@@ -141,7 +141,7 @@ func TestSearch(t *testing.T) {
 	client.deleteIndex(index)
 }
 
-func TestsearchResultIterator(t *testing.T) {
+func TestSearchResultIterator(t *testing.T) {
 	iterator := setupTestIterator(t)
 
 	expected := []struct {
