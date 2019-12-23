@@ -61,7 +61,7 @@ func Order(order SearchOrder) SearchOption {
 	}
 }
 
-func MatchTyp(matchType string) SearchOption {
+func MatchType(matchType string) SearchOption {
 	return func(s *searchOption) {
 		s.matchType = matchType
 	}
