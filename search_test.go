@@ -13,7 +13,7 @@ import (
 
 var tweet1 = tweet{Message: "message1", Retweets: 2, Created: time.Date(2018, 1, 2, 0, 0, 0, 0, time.UTC), Tags: []string{"tag1", "tag2"}}
 var tweet2 = tweet{Message: "message2", Retweets: 5, Created: time.Date(2019, 10, 10, 10, 0, 0, 0, time.UTC), Tags: []string{"tag3", "tag4"}}
-var tweet3 = tweet{Message: "message3", Retweets: 0, Created: time.Date(2019, 11, 11, 11, 0, 0, 0, time.UTC), Tags: []string{"tag5", "tag6"}}
+var tweet3 = tweet{Message: "message3", Retweets: 0, Created: time.Date(2018, 11, 11, 11, 0, 0, 0, time.UTC), Tags: []string{"tag5", "tag6"}}
 
 func setupTestData(t *testing.T, client *elastic.Client) {
 	index := "tweets"
@@ -88,15 +88,32 @@ func setupTestIterator(t *testing.T) *searchResultIterator {
 
 func TestSearch(t *testing.T) {
 	testCases := []struct {
+		name   string
 		query  string
 		fields []string
 		tweets []tweet
+		opt    []SearchOption
 	}{
 		{
-			"message", []string{"message"}, []tweet{tweet1, tweet2, tweet3},
+			"simple", "message", []string{"message"}, []tweet{tweet1, tweet2, tweet3}, nil,
 		},
 		{
-			"message1 tag6", []string{"message", "tags"}, []tweet{tweet1, tweet3},
+			"with multiple query and multiple fields", "message1 tag6", []string{"message", "tags"}, []tweet{tweet1, tweet3}, nil,
+		},
+		{
+			"with no match query", "messa", []string{"message"}, []tweet{}, nil,
+		},
+		{
+			"with Limit option", "message", []string{"message"}, []tweet{tweet1}, []SearchOption{Limit(1)},
+		},
+		{
+			"with Limit and From options", "message", []string{"message"}, []tweet{tweet2, tweet3}, []SearchOption{Limit(2), From(1)},
+		},
+		{
+			"with SortField option", "message", []string{"message"}, []tweet{tweet1, tweet3, tweet2}, []SearchOption{SortField("created")},
+		},
+		{
+			"with SortField and Order options", "message", []string{"message"}, []tweet{tweet2, tweet3, tweet1}, []SearchOption{SortField("created"), Order(Desc)},
 		},
 	}
 
@@ -112,10 +129,18 @@ func TestSearch(t *testing.T) {
 	sClient := NewSearchClient(client)
 
 	for _, tt := range testCases {
-		t.Run(tt.query, func(t *testing.T) {
-			res, err := sClient.Search(context.TODO(), index, tt.query, tt.fields)
-			if err != nil {
-				t.Fatal(err)
+		t.Run(tt.name, func(t *testing.T) {
+			var res SearchResponse
+			if tt.opt != nil {
+				res, err = sClient.Search(context.TODO(), index, tt.query, tt.fields, tt.opt...)
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				res, err = sClient.Search(context.TODO(), index, tt.query, tt.fields)
+				if err != nil {
+					t.Fatal(err)
+				}
 			}
 
 			for j, source := range res.Sources {
@@ -173,7 +198,7 @@ func TestSearchResultIterator(t *testing.T) {
 			t.Fatalf("expected %v, but got %v\n", expected[index].tw.Retweets, v.Retweets)
 		}
 
-		if v.Created.Equal(expected[index].tw.Created) {
+		if !v.Created.Equal(expected[index].tw.Created) {
 			t.Fatalf("expected %v, but got %v\n", expected[index].tw.Created, v.Created)
 		}
 

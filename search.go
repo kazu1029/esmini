@@ -25,11 +25,11 @@ const (
 )
 
 const DefaultSize = 100
-const DefaultStartLoc = 0
+const DefaultFrom = 0
 
 type searchOption struct {
 	size      int
-	startLoc  int
+	from      int
 	sortField string
 	order     SearchOrder
 	matchType string
@@ -43,9 +43,9 @@ func Limit(size int) SearchOption {
 	}
 }
 
-func Page(startLoc int) SearchOption {
+func From(from int) SearchOption {
 	return func(s *searchOption) {
-		s.startLoc = startLoc
+		s.from = from
 	}
 }
 
@@ -61,6 +61,8 @@ func Order(order SearchOrder) SearchOption {
 	}
 }
 
+// MatchType can be "best_fields", "boolean", "most_fields", "cross_fields",
+// "phrase", "phrase_prefix" or "bool_prefix"
 func MatchType(matchType string) SearchOption {
 	return func(s *searchOption) {
 		s.matchType = matchType
@@ -75,8 +77,8 @@ func NewSearchClient(client *IndexClient) *SearchClient {
 
 func (s *SearchClient) Search(ctx context.Context, index string, searchText interface{}, targetFields []string, opts ...SearchOption) (SearchResponse, error) {
 	sOpt := &searchOption{
-		size:     DefaultSize,
-		startLoc: DefaultStartLoc,
+		size: DefaultSize,
+		from: DefaultFrom,
 	}
 	for _, opt := range opts {
 		opt(sOpt)
@@ -101,13 +103,13 @@ func (s *SearchClient) Search(ctx context.Context, index string, searchText inte
 			Index(index).
 			Query(query).
 			SortBy(sortQuery).
-			From(sOpt.startLoc).Size(sOpt.size).
+			From(sOpt.from).Size(sOpt.size).
 			Do(ctx)
 	} else {
 		res, err = s.iClient.raw.Search().
 			Index(index).
 			Query(query).
-			From(sOpt.startLoc).Size(sOpt.size).
+			From(sOpt.from).Size(sOpt.size).
 			Do(ctx)
 	}
 
