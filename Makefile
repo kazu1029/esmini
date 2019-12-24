@@ -15,7 +15,7 @@ test:
 	$(DOCKER_COMPOSE) run app $(GOTEST) -v ./...
 
 examples:
-	$(DOCKER_COMPOSE) run app $(GOTEST) . -v -run=Example*
+	$(DOCKER_COMPOSE) run app $(GOTEST) -v ./... -run=Example*
 
 clean:
 	$(GOCLEAN)

@@ -1,4 +1,4 @@
-package index_test
+package esmini
 
 import (
 	"context"

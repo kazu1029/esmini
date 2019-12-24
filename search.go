@@ -15,6 +15,7 @@ type SearchClient struct {
 type SearchResponse struct {
 	Hits    int64
 	Sources []json.RawMessage
+	searchResultIterator
 }
 
 type SearchOrder int
@@ -124,6 +125,7 @@ func (s *SearchClient) Search(ctx context.Context, index string, searchText inte
 	for _, hit := range res.Hits.Hits {
 		result.Sources = append(result.Sources, hit.Source)
 	}
+	result.array = result.Sources
 
 	return result, nil
 }

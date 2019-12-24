@@ -70,6 +70,10 @@ func (i *IndexClient) BulkInsert(ctx context.Context, index string, docs *list.L
 	return res, nil
 }
 
+func (i *IndexClient) DeleteIndex(ctx context.Context, index string) (*elastic.IndicesDeleteResponse, error) {
+	return i.raw.DeleteIndex(index).Do(ctx)
+}
+
 func (i *IndexClient) Ping(ctx context.Context, host string) (*elastic.PingResult, int, error) {
 	return i.raw.Ping(host).Do(ctx)
 }

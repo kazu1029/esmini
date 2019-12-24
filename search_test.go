@@ -163,7 +163,10 @@ func TestSearch(t *testing.T) {
 		})
 	}
 
-	client.deleteIndex(index)
+	_, err = client.DeleteIndex(context.TODO(), index)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestSearchResultIterator(t *testing.T) {
