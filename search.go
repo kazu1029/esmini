@@ -15,7 +15,7 @@ type SearchClient struct {
 type SearchResponse struct {
 	Hits    int64
 	Sources []json.RawMessage
-	searchResultIterator
+	index   int
 }
 
 type SearchOrder int
@@ -128,9 +128,29 @@ func (s *SearchClient) Search(ctx context.Context, index string, searchText inte
 	for _, hit := range res.Hits.Hits {
 		result.Sources = append(result.Sources, hit.Source)
 	}
-	result.array = result.Sources
 
 	return result, nil
+}
+
+func (r *SearchResponse) Index() int {
+	return r.index
+}
+
+func (r *SearchResponse) HasNext() bool {
+	return r.index != len(r.Sources)
+}
+
+func (r *SearchResponse) Next(v interface{}) error {
+	if r.HasNext() {
+		bytes := []byte(r.Sources[r.index])
+		err := json.Unmarshal(bytes, v)
+		if err != nil {
+			return err
+		}
+		r.index++
+		return nil
+	}
+	return errors.New("No next value")
 }
 
 type Iterator interface {
