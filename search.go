@@ -93,6 +93,7 @@ func (s *SearchClient) Search(ctx context.Context, index string, searchText inte
 	var sortQuery *elastic.FieldSort
 	var res *elastic.SearchResult
 	var err error
+	var result SearchResponse
 
 	if len(sOpt.sortField) > 0 {
 		if sOpt.order == Asc {
@@ -106,18 +107,20 @@ func (s *SearchClient) Search(ctx context.Context, index string, searchText inte
 			SortBy(sortQuery).
 			From(sOpt.from).Size(sOpt.size).
 			Do(ctx)
+
+		if err != nil {
+			return result, err
+		}
 	} else {
 		res, err = s.iClient.raw.Search().
 			Index(index).
 			Query(query).
 			From(sOpt.from).Size(sOpt.size).
 			Do(ctx)
-	}
 
-	var result SearchResponse
-
-	if err != nil {
-		return result, err
+		if err != nil {
+			return result, err
+		}
 	}
 
 	result.Hits = res.Hits.TotalHits.Value
@@ -152,7 +155,10 @@ func (i *searchResultIterator) HasNext() bool {
 func (i *searchResultIterator) Next(v interface{}) error {
 	if i.HasNext() {
 		bytes := []byte(i.array[i.index])
-		_ = json.Unmarshal(bytes, v)
+		err := json.Unmarshal(bytes, v)
+		if err != nil {
+			return err
+		}
 		i.index++
 		return nil
 	}

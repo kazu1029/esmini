@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"reflect"
 	"testing"
 	"time"
@@ -15,8 +16,7 @@ var tweet1 = tweet{Message: "message1", Retweets: 2, Created: time.Date(2018, 1,
 var tweet2 = tweet{Message: "message2", Retweets: 5, Created: time.Date(2019, 10, 10, 10, 0, 0, 0, time.UTC), Tags: []string{"tag3", "tag4"}}
 var tweet3 = tweet{Message: "message3", Retweets: 0, Created: time.Date(2018, 11, 11, 11, 0, 0, 0, time.UTC), Tags: []string{"tag5", "tag6"}}
 
-func setupTestData(t *testing.T, client *elastic.Client) {
-	index := "tweets"
+func setupTestData(client *elastic.Client, index string) {
 	mapping := `
 	  {
 			"settings":{
@@ -40,25 +40,25 @@ func setupTestData(t *testing.T, client *elastic.Client) {
 	`
 	_, err := client.CreateIndex(index).BodyJson(mapping).Do(context.TODO())
 	if err != nil {
-		t.Fatal(err)
+		log.Fatal(err)
 	}
 
 	_, err = client.Index().Index(index).BodyJson(&tweet1).Do(context.TODO())
 	if err != nil {
-		t.Fatal(err)
+		log.Fatal(err)
 	}
 	_, err = client.Index().Index(index).BodyJson(&tweet2).Do(context.TODO())
 	if err != nil {
-		t.Fatal(err)
+		log.Fatal(err)
 	}
 	_, err = client.Index().Index(index).BodyJson(&tweet3).Do(context.TODO())
 	if err != nil {
-		t.Fatal(err)
+		log.Fatal(err)
 	}
 
 	_, err = client.Refresh().Index(index).Do(context.TODO())
 	if err != nil {
-		t.Fatal(err)
+		log.Fatal(err)
 	}
 
 	return
@@ -124,7 +124,7 @@ func TestSearch(t *testing.T) {
 	}
 	defer client.Stop()
 
-	setupTestData(t, client.raw)
+	setupTestData(client.raw, index)
 
 	sClient := NewSearchClient(client)
 
@@ -208,5 +208,47 @@ func TestSearchResultIterator(t *testing.T) {
 		if !reflect.DeepEqual(v.Tags, expected[index].tw.Tags) {
 			t.Fatalf("expected %v, but got %v\n", expected[index].tw.Tags, v.Tags)
 		}
+	}
+}
+
+func ExampleSearchClient_Search() {
+	host := elastic.SetURL(ElasticSearchHost)
+	client, err := New(host)
+	if err != nil {
+		panic(err)
+	}
+
+	defer client.Stop()
+
+	index := "example-tweets"
+	setupTestData(client.raw, index)
+
+	sClient := NewSearchClient(client)
+	ctx := context.Background()
+	searchText := "message"
+	targetFields := []string{"message", "tags"}
+
+	res, err := sClient.Search(ctx, index, searchText, targetFields)
+	if err != nil {
+		panic(err)
+	}
+
+	// Output:
+	// {message1 2 2018-01-02 00:00:00 +0000 UTC [tag1 tag2]}
+	// {message2 5 2019-10-10 10:00:00 +0000 UTC [tag3 tag4]}
+	// {message3 0 2018-11-11 11:00:00 +0000 UTC [tag5 tag6]}
+	for res.HasNext() {
+		var t tweet
+		err := res.Next(&t)
+		if err != nil {
+			return
+		}
+
+		fmt.Printf("%v\n", t)
+	}
+
+	_, err = client.DeleteIndex(context.TODO(), index)
+	if err != nil {
+		panic(err)
 	}
 }
