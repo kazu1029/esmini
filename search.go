@@ -132,25 +132,11 @@ func (s *SearchClient) Search(ctx context.Context, index string, searchText inte
 	return result, nil
 }
 
-func (r *SearchResponse) Index() int {
-	return r.index
-}
-
-func (r *SearchResponse) HasNext() bool {
-	return r.index != len(r.Sources)
-}
-
-func (r *SearchResponse) Next(v interface{}) error {
-	if r.HasNext() {
-		bytes := []byte(r.Sources[r.index])
-		err := json.Unmarshal(bytes, v)
-		if err != nil {
-			return err
-		}
-		r.index++
-		return nil
+func (r *SearchResponse) NewIterator() Iterator {
+	return &searchResultIterator{
+		array: r.Sources,
+		index: 0,
 	}
-	return errors.New("No next value")
 }
 
 type Iterator interface {

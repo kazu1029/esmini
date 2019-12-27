@@ -233,13 +233,15 @@ func ExampleSearchClient_Search() {
 		panic(err)
 	}
 
+	itr := res.NewIterator()
+
 	// Output:
 	// {message1 2 2018-01-02 00:00:00 +0000 UTC [tag1 tag2]}
 	// {message2 5 2019-10-10 10:00:00 +0000 UTC [tag3 tag4]}
 	// {message3 0 2018-11-11 11:00:00 +0000 UTC [tag5 tag6]}
-	for res.HasNext() {
+	for itr.HasNext() {
 		var t tweet
-		err := res.Next(&t)
+		err := itr.Next(&t)
 		if err != nil {
 			return
 		}
