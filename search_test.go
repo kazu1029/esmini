@@ -64,7 +64,7 @@ func setupTestData(client *elastic.Client, index string) {
 	return
 }
 
-func setupTestIterator(t *testing.T) *SearchResultIterator {
+func setupTestIterator(t *testing.T) *SearchResponseIterator {
 	tw1, err := json.Marshal(tweet1)
 	if err != nil {
 		t.Fatal(err)
@@ -78,7 +78,7 @@ func setupTestIterator(t *testing.T) *SearchResultIterator {
 		t.Fatal(err)
 	}
 
-	iterator := &SearchResultIterator{
+	iterator := &SearchResponseIterator{
 		array: []json.RawMessage{json.RawMessage(tw1), json.RawMessage(tw2), json.RawMessage(tw3)},
 		index: 0,
 	}
