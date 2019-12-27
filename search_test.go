@@ -64,7 +64,7 @@ func setupTestData(client *elastic.Client, index string) {
 	return
 }
 
-func setupTestIterator(t *testing.T) *searchResultIterator {
+func setupTestIterator(t *testing.T) *SearchResultIterator {
 	tw1, err := json.Marshal(tweet1)
 	if err != nil {
 		t.Fatal(err)
@@ -78,7 +78,7 @@ func setupTestIterator(t *testing.T) *searchResultIterator {
 		t.Fatal(err)
 	}
 
-	iterator := &searchResultIterator{
+	iterator := &SearchResultIterator{
 		array: []json.RawMessage{json.RawMessage(tw1), json.RawMessage(tw2), json.RawMessage(tw3)},
 		index: 0,
 	}
@@ -233,7 +233,7 @@ func ExampleSearchClient_Search() {
 		panic(err)
 	}
 
-	itr := res.NewIterator()
+	itr := res.NewSearchResponseIterator()
 
 	// Output:
 	// {message1 2 2018-01-02 00:00:00 +0000 UTC [tag1 tag2]}
