@@ -132,27 +132,27 @@ func (s *SearchClient) Search(ctx context.Context, index string, searchText inte
 	return result, nil
 }
 
-func (r *SearchResponse) NewSearchResponseIterator() *SearchResponseIterator {
-	return &SearchResponseIterator{
+func (r *SearchResponse) NewSearchResponseIterator() *HitSourceIterator {
+	return &HitSourceIterator{
 		array: r.Sources,
 		index: 0,
 	}
 }
 
-type SearchResponseIterator struct {
+type HitSourceIterator struct {
 	array []json.RawMessage
 	index int
 }
 
-func (i *SearchResponseIterator) Index() int {
+func (i *HitSourceIterator) Index() int {
 	return i.index
 }
 
-func (i *SearchResponseIterator) HasNext() bool {
+func (i *HitSourceIterator) HasNext() bool {
 	return i.index != len(i.array)
 }
 
-func (i *SearchResponseIterator) Next(v interface{}) error {
+func (i *HitSourceIterator) Next(v interface{}) error {
 	if i.HasNext() {
 		bytes := []byte(i.array[i.index])
 		err := json.Unmarshal(bytes, v)
