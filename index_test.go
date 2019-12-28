@@ -13,14 +13,6 @@ import (
 
 const ElasticSearchHost = "http://es01:9200"
 
-func (i *IndexClient) deleteIndex(index string) {
-	_, err := i.raw.DeleteIndex(index).Do(context.TODO())
-	if err != nil {
-		panic(err)
-	}
-	i.Stop()
-}
-
 func (i *IndexClient) deleteTemplate(tempName string) {
 	_, err := i.raw.IndexDeleteTemplate(tempName).Do(context.TODO())
 	if err != nil {
@@ -52,6 +44,7 @@ func TestCreateIndex(t *testing.T) {
 	}
 	index := "tweet"
 	defer client.Stop()
+
 	createIndex, err := client.CreateIndex(context.TODO(), index)
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +60,10 @@ func TestCreateIndex(t *testing.T) {
 		t.Error("expected index exists, but does not exist")
 	}
 
-	client.deleteIndex(index)
+	_, err = client.DeleteIndex(context.TODO(), index)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestCreateIndexWithMapping(t *testing.T) {
@@ -111,7 +107,10 @@ func TestCreateIndexWithMapping(t *testing.T) {
 		}
 	}
 
-	client.deleteIndex(index)
+	_, err = client.DeleteIndex(context.TODO(), index)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestCreateTemplate(t *testing.T) {
@@ -208,5 +207,8 @@ func TestBulkInsert(t *testing.T) {
 		i++
 	}
 
-	client.deleteIndex(index)
+	_, err = client.DeleteIndex(context.TODO(), index)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
