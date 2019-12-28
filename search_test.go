@@ -233,7 +233,7 @@ func ExampleSearchClient_Search() {
 		panic(err)
 	}
 
-	itr := res.NewSearchResponseIterator()
+	itr := res.NewHitSourceIterator()
 
 	// Output:
 	// {message1 2 2018-01-02 00:00:00 +0000 UTC [tag1 tag2]}

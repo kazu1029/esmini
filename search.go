@@ -132,7 +132,7 @@ func (s *SearchClient) Search(ctx context.Context, index string, searchText inte
 	return result, nil
 }
 
-func (r *SearchResponse) NewSearchResponseIterator() *HitSourceIterator {
+func (r *SearchResponse) NewHitSourceIterator() *HitSourceIterator {
 	return &HitSourceIterator{
 		array: r.Sources,
 		index: 0,
