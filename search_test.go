@@ -12,9 +12,9 @@ import (
 	"github.com/olivere/elastic/v7"
 )
 
-var tweet1 = tweet{Message: "message1", Retweets: 2, Created: time.Date(2018, 1, 2, 0, 0, 0, 0, time.UTC), Tags: []string{"tag1", "tag2"}}
-var tweet2 = tweet{Message: "message2", Retweets: 5, Created: time.Date(2019, 10, 10, 10, 0, 0, 0, time.UTC), Tags: []string{"tag3", "tag4"}}
-var tweet3 = tweet{Message: "message3", Retweets: 0, Created: time.Date(2018, 11, 11, 11, 0, 0, 0, time.UTC), Tags: []string{"tag5", "tag6"}}
+var tweet1 = tweet{Message: "message1", Retweets: 2, Created: time.Date(2018, 1, 2, 0, 0, 0, 0, time.UTC), Tags: []string{"tag1", "tag2"}, Category: "Category1"}
+var tweet2 = tweet{Message: "message2", Retweets: 5, Created: time.Date(2019, 10, 10, 10, 0, 0, 0, time.UTC), Tags: []string{"tag3", "tag4"}, Category: "Category2"}
+var tweet3 = tweet{Message: "message3", Retweets: 0, Created: time.Date(2018, 11, 11, 11, 0, 0, 0, time.UTC), Tags: []string{"tag5", "tag6"}, Category: "Category3"}
 
 func setupTestData(client *elastic.Client, index string) {
 	mapping := `
@@ -33,6 +33,9 @@ func setupTestData(client *elastic.Client, index string) {
 					},
 					"tags":{
 					  "type":"text"
+					},
+					"category":{
+					  "type":"keyword"
 					}
 				}
 			}
@@ -115,6 +118,12 @@ func TestSearch(t *testing.T) {
 		{
 			"with SortField and Order options", "message", []string{"message"}, []tweet{tweet2, tweet3, tweet1}, []SearchOption{SortField("created"), Order(Desc)},
 		},
+		{
+			"with BoolQueries1", "", []string{"message"}, []tweet{tweet1}, []SearchOption{BoolQueries([][]string{[]string{"category", "Category1"}})},
+		},
+		{
+			"with BoolQueries2", "", []string{"message"}, []tweet{tweet2, tweet3}, []SearchOption{BoolQueries([][]string{[]string{"category", "Category3"}, []string{"category", "Category2"}})},
+		},
 	}
 
 	index := "tweets"
@@ -158,6 +167,9 @@ func TestSearch(t *testing.T) {
 				}
 				if !reflect.DeepEqual(tt.tweets[j].Tags, tw.Tags) {
 					t.Fatalf("expected %v, but got %v\n", tt.tweets[j].Tags, tw.Tags)
+				}
+				if tt.tweets[j].Category != tw.Category {
+					t.Fatalf("expected %v, but got %v\n", tt.tweets[j].Category, tw.Category)
 				}
 			}
 		})
@@ -208,6 +220,10 @@ func TestSearchResultIterator(t *testing.T) {
 		if !reflect.DeepEqual(v.Tags, expected[index].tw.Tags) {
 			t.Fatalf("expected %v, but got %v\n", expected[index].tw.Tags, v.Tags)
 		}
+
+		if v.Category != expected[index].tw.Category {
+			t.Fatalf("expected %v, but got %v\n", expected[index].tw.Category, v.Category)
+		}
 	}
 }
 
@@ -236,9 +252,9 @@ func ExampleSearchClient_Search() {
 	itr := res.NewHitSourceIterator()
 
 	// Output:
-	// {message1 2 2018-01-02 00:00:00 +0000 UTC [tag1 tag2]}
-	// {message2 5 2019-10-10 10:00:00 +0000 UTC [tag3 tag4]}
-	// {message3 0 2018-11-11 11:00:00 +0000 UTC [tag5 tag6]}
+	// {message1 2 2018-01-02 00:00:00 +0000 UTC [tag1 tag2] Category1}
+	// {message2 5 2019-10-10 10:00:00 +0000 UTC [tag3 tag4] Category2}
+	// {message3 0 2018-11-11 11:00:00 +0000 UTC [tag5 tag6] Category3}
 	for itr.HasNext() {
 		var t tweet
 		err := itr.Next(&t)

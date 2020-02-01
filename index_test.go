@@ -148,6 +148,7 @@ type tweet struct {
 	Retweets int       `json:"retweets"`
 	Created  time.Time `json:"created,omitempty"`
 	Tags     []string  `json:"tags,omitempty"`
+	Category string    `json:"category,omitempty"`
 }
 
 func TestBulkInsert(t *testing.T) {

@@ -29,11 +29,12 @@ const DefaultSize = 100
 const DefaultFrom = 0
 
 type searchOption struct {
-	size      int
-	from      int
-	sortField string
-	order     SearchOrder
-	matchType string
+	size        int
+	from        int
+	sortField   string
+	order       SearchOrder
+	matchType   string
+	boolQueries [][]string
 }
 
 type SearchOption func(*searchOption)
@@ -70,6 +71,12 @@ func MatchType(matchType string) SearchOption {
 	}
 }
 
+func BoolQueries(queries [][]string) SearchOption {
+	return func(s *searchOption) {
+		s.boolQueries = queries
+	}
+}
+
 func NewSearchClient(client *IndexClient) *SearchClient {
 	return &SearchClient{
 		iClient: client,
@@ -85,10 +92,21 @@ func (s *SearchClient) Search(ctx context.Context, index string, searchText inte
 		opt(sOpt)
 	}
 
-	query := elastic.NewMultiMatchQuery(searchText, targetFields...).
+	query := elastic.NewBoolQuery()
+	multiMatchQuery := elastic.NewMultiMatchQuery(searchText, targetFields...).
 		Type(sOpt.matchType).
 		Fuzziness("AUTO").
 		MinimumShouldMatch("2")
+
+	var termQuery *elastic.TermQuery
+	if len(sOpt.boolQueries) > 0 {
+		for _, o := range sOpt.boolQueries {
+			termQuery = elastic.NewTermQuery(o[0], o[1])
+		}
+		query.Should(multiMatchQuery, termQuery)
+	} else {
+		query.Should(multiMatchQuery)
+	}
 
 	var sortQuery *elastic.FieldSort
 	var res *elastic.SearchResult
