@@ -103,9 +103,9 @@ func (s *SearchClient) Search(ctx context.Context, index string, searchText inte
 		for _, o := range sOpt.boolQueries {
 			termQuery = elastic.NewTermQuery(o[0], o[1])
 		}
-		query.Should(multiMatchQuery, termQuery)
+		query.Must(termQuery, multiMatchQuery)
 	} else {
-		query.Should(multiMatchQuery)
+		query.Must(multiMatchQuery)
 	}
 
 	var sortQuery *elastic.FieldSort

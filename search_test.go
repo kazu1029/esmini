@@ -124,6 +124,9 @@ func TestSearch(t *testing.T) {
 		{
 			"with BoolQueries2", "", []string{"message"}, []tweet{tweet2, tweet3}, []SearchOption{BoolQueries([][]string{[]string{"category", "Category3"}, []string{"category", "Category2"}})},
 		},
+		{
+			"with BoolQueries and Query", "message", []string{"message"}, []tweet{tweet1, tweet2}, []SearchOption{BoolQueries([][]string{[]string{"category", "Category2"}, []string{"category", "Category1"}})},
+		},
 	}
 
 	index := "tweets"
