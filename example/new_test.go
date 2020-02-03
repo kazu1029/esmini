@@ -2,8 +2,9 @@ package esmini
 
 import (
 	"context"
-	"esmini"
 	"fmt"
+
+	"github.com/kazu1029/esmini"
 
 	"github.com/olivere/elastic/v7"
 )

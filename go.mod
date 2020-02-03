@@ -1,4 +1,4 @@
-module esmini
+module github.com/kazu1029/esmini
 
 go 1.13
 
