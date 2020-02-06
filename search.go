@@ -34,7 +34,7 @@ type searchOption struct {
 	sortField   string
 	order       SearchOrder
 	matchType   string
-	boolQueries [][]string
+	boolQueries map[string]interface{}
 }
 
 type SearchOption func(*searchOption)
@@ -71,7 +71,7 @@ func MatchType(matchType string) SearchOption {
 	}
 }
 
-func BoolQueries(queries [][]string) SearchOption {
+func BoolQueries(queries map[string]interface{}) SearchOption {
 	return func(s *searchOption) {
 		s.boolQueries = queries
 	}
@@ -98,14 +98,17 @@ func (s *SearchClient) Search(ctx context.Context, index string, searchText inte
 		Fuzziness("AUTO").
 		MinimumShouldMatch("2")
 
-	var termQuery *elastic.TermQuery
+	query.Must(multiMatchQuery)
 	if len(sOpt.boolQueries) > 0 {
-		for _, o := range sOpt.boolQueries {
-			termQuery = elastic.NewTermQuery(o[0], o[1])
+		for key, value := range sOpt.boolQueries {
+			if values, ok := value.([]string); ok {
+				for _, v := range values {
+					query.Filter(elastic.NewTermQuery(key, v))
+				}
+			} else {
+				query.Filter(elastic.NewTermQuery(key, value))
+			}
 		}
-		query.Must(termQuery, multiMatchQuery)
-	} else {
-		query.Must(multiMatchQuery)
 	}
 
 	var sortQuery *elastic.FieldSort

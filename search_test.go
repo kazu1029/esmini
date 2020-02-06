@@ -119,13 +119,13 @@ func TestSearch(t *testing.T) {
 			"with SortField and Order options", "message", []string{"message"}, []tweet{tweet2, tweet3, tweet1}, []SearchOption{SortField("created"), Order(Desc)},
 		},
 		{
-			"with BoolQueries1", "", []string{"message"}, []tweet{tweet1}, []SearchOption{BoolQueries([][]string{[]string{"category", "Category1"}})},
+			"with BoolQueries1", "", []string{"message"}, []tweet{tweet1}, []SearchOption{BoolQueries(map[string]interface{}{"category": "Category1"})},
 		},
 		{
-			"with BoolQueries2", "", []string{"message"}, []tweet{tweet2, tweet3}, []SearchOption{BoolQueries([][]string{[]string{"category", "Category3"}, []string{"category", "Category2"}})},
+			"with BoolQueries2", "", []string{"message"}, []tweet{tweet2, tweet3}, []SearchOption{BoolQueries(map[string]interface{}{"category": []string{"Category3", "Category2"}})},
 		},
 		{
-			"with BoolQueries and Query", "message", []string{"message"}, []tweet{tweet1, tweet2}, []SearchOption{BoolQueries([][]string{[]string{"category", "Category2"}, []string{"category", "Category1"}})},
+			"with BoolQueries and Query", "message", []string{"message"}, []tweet{tweet1, tweet2}, []SearchOption{BoolQueries(map[string]interface{}{"category": []string{"Category2", "Category1"}})},
 		},
 	}
 
