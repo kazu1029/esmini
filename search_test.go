@@ -101,7 +101,7 @@ func TestSearch(t *testing.T) {
 			"simple", "message", []string{"message"}, []tweet{tweet1, tweet2, tweet3}, nil,
 		},
 		{
-			"with multiple query and multiple fields", "message1 tag6", []string{"message", "tags"}, []tweet{tweet1, tweet3}, nil,
+			"with multiple query and multiple fields", "message1 tag6", []string{"message", "tags"}, []tweet{tweet1, tweet3}, []SearchOption{MatchType("most_fields"), Fuzziness("0")},
 		},
 		{
 			"with no match query", "messa", []string{"message"}, []tweet{}, nil,
@@ -122,10 +122,13 @@ func TestSearch(t *testing.T) {
 			"with BoolQueries1", "", []string{"message"}, []tweet{tweet1}, []SearchOption{BoolQueries(map[string]interface{}{"category": "Category1"})},
 		},
 		{
-			"with BoolQueries2", "", []string{"message"}, []tweet{tweet2, tweet3}, []SearchOption{BoolQueries(map[string]interface{}{"category": []string{"Category3", "Category2"}})},
+			"with BoolQueries2", "", []string{"message"}, []tweet{tweet2, tweet3}, []SearchOption{BoolQueries(map[string]interface{}{"category": []string{"Category3", "Category2"}}), BoolClause("should")},
 		},
+		// {
+		// 	"with BoolQueries and Query", "message", []string{"message"}, []tweet{tweet1, tweet2}, []SearchOption{BoolQueries(map[string]interface{}{"category": []string{"Category2", "Category1"}}), BoolClause("must")},
+		// },
 		{
-			"with BoolQueries and Query", "message", []string{"message"}, []tweet{tweet1, tweet2}, []SearchOption{BoolQueries(map[string]interface{}{"category": []string{"Category2", "Category1"}})},
+			"without query and with BoolQueries", "", []string{"message"}, []tweet{tweet1}, []SearchOption{BoolQueries(map[string]interface{}{"category": []string{"Category1", "Category2"}}), Limit(1), From(0), BoolClause("should")},
 		},
 	}
 
@@ -153,6 +156,10 @@ func TestSearch(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+			}
+
+			if len(tt.tweets) != int(res.Hits) {
+				t.Fatalf("expected %v, but got %v\n", len(tt.tweets), int(res.Hits))
 			}
 
 			for j, source := range res.Sources {

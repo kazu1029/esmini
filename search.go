@@ -25,16 +25,22 @@ const (
 	Desc
 )
 
-const DefaultSize = 100
-const DefaultFrom = 0
+const (
+	DefaultSize      = 100
+	DefaultFrom      = 0
+	DefaultFuzziness = "AUTO"
+)
 
 type searchOption struct {
-	size        int
-	from        int
-	sortField   string
-	order       SearchOrder
-	matchType   string
-	boolQueries map[string]interface{}
+	size               int
+	from               int
+	sortField          string
+	order              SearchOrder
+	matchType          string
+	fuzziness          string
+	minimumShouldMatch string
+	boolClause         string
+	boolQueries        map[string]interface{}
 }
 
 type SearchOption func(*searchOption)
@@ -77,6 +83,25 @@ func BoolQueries(queries map[string]interface{}) SearchOption {
 	}
 }
 
+func Fuzziness(fuzziness string) SearchOption {
+	return func(s *searchOption) {
+		s.fuzziness = fuzziness
+	}
+}
+
+func MinimumShouldMatch(minimumShouldMatch string) SearchOption {
+	return func(s *searchOption) {
+		s.minimumShouldMatch = minimumShouldMatch
+	}
+}
+
+// BoolClause can be "must", "should", "must_not", "filter"
+func BoolClause(boolClause string) SearchOption {
+	return func(s *searchOption) {
+		s.boolClause = boolClause
+	}
+}
+
 func NewSearchClient(client *IndexClient) *SearchClient {
 	return &SearchClient{
 		iClient: client,
@@ -85,25 +110,43 @@ func NewSearchClient(client *IndexClient) *SearchClient {
 
 func (s *SearchClient) Search(ctx context.Context, index string, searchText interface{}, targetFields []string, opts ...SearchOption) (SearchResponse, error) {
 	sOpt := &searchOption{
-		size: DefaultSize,
-		from: DefaultFrom,
+		size:      DefaultSize,
+		from:      DefaultFrom,
+		fuzziness: DefaultFuzziness,
 	}
 	for _, opt := range opts {
 		opt(sOpt)
 	}
 
 	query := elastic.NewBoolQuery()
-	multiMatchQuery := elastic.NewMultiMatchQuery(searchText, targetFields...).
-		Type(sOpt.matchType).
-		Fuzziness("AUTO").
-		MinimumShouldMatch("2")
+	if searchText != "" {
+		multiMatchQuery := elastic.NewMultiMatchQuery(searchText, targetFields...).Type(sOpt.matchType)
+		if sOpt.matchType == "cross_fields" {
+			multiMatchQuery.
+				Fuzziness(sOpt.fuzziness)
+		} else {
+			multiMatchQuery.
+				Fuzziness(sOpt.fuzziness).
+				MinimumShouldMatch(sOpt.minimumShouldMatch)
+		}
+		query.Must(multiMatchQuery)
+	}
 
-	query.Must(multiMatchQuery)
 	if len(sOpt.boolQueries) > 0 {
 		for key, value := range sOpt.boolQueries {
 			if values, ok := value.([]string); ok {
 				for _, v := range values {
-					query.Filter(elastic.NewTermQuery(key, v))
+					termQuery := elastic.NewTermQuery(key, v)
+					switch sOpt.boolClause {
+					case "must":
+						query.Must(termQuery)
+					case "should":
+						query.Should(termQuery)
+					case "must_not":
+						query.MustNot(termQuery)
+					default:
+						query.Filter(termQuery)
+					}
 				}
 			} else {
 				query.Filter(elastic.NewTermQuery(key, value))
@@ -144,7 +187,7 @@ func (s *SearchClient) Search(ctx context.Context, index string, searchText inte
 		}
 	}
 
-	result.Hits = res.Hits.TotalHits.Value
+	result.Hits = int64(len(res.Hits.Hits))
 
 	for _, hit := range res.Hits.Hits {
 		result.Sources = append(result.Sources, hit.Source)
