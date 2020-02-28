@@ -32,15 +32,14 @@ const (
 )
 
 type searchOption struct {
-	size               int
-	from               int
-	sortField          string
-	order              SearchOrder
-	matchType          string
-	fuzziness          string
-	minimumShouldMatch string
-	boolClause         string
-	boolQueries        map[string]interface{}
+	size                  int
+	from                  int
+	sortField             string
+	order                 SearchOrder
+	matchType             string
+	fuzziness             string
+	minimumShouldMatch    string
+	boolQueriesWithClause []BoolQueriesWithClauseOption
 }
 
 type SearchOption func(*searchOption)
@@ -77,12 +76,6 @@ func MatchType(matchType string) SearchOption {
 	}
 }
 
-func BoolQueries(queries map[string]interface{}) SearchOption {
-	return func(s *searchOption) {
-		s.boolQueries = queries
-	}
-}
-
 func Fuzziness(fuzziness string) SearchOption {
 	return func(s *searchOption) {
 		s.fuzziness = fuzziness
@@ -95,10 +88,15 @@ func MinimumShouldMatch(minimumShouldMatch string) SearchOption {
 	}
 }
 
-// BoolClause can be "must", "should", "must_not", "filter"
-func BoolClause(boolClause string) SearchOption {
+type BoolQueriesWithClauseOption struct {
+	Target string
+	Query  interface{}
+	Clause string // Clause can be "must", "should", "must_not", "filter"
+}
+
+func BoolQueriesWithClause(boolQueries []BoolQueriesWithClauseOption) SearchOption {
 	return func(s *searchOption) {
-		s.boolClause = boolClause
+		s.boolQueriesWithClause = boolQueries
 	}
 }
 
@@ -121,10 +119,7 @@ func (s *SearchClient) Search(ctx context.Context, index string, searchText inte
 	query := elastic.NewBoolQuery()
 	if searchText != "" {
 		multiMatchQuery := elastic.NewMultiMatchQuery(searchText, targetFields...).Type(sOpt.matchType)
-		if sOpt.matchType == "cross_fields" {
-			multiMatchQuery.
-				Fuzziness(sOpt.fuzziness)
-		} else {
+		if sOpt.matchType != "cross_fields" {
 			multiMatchQuery.
 				Fuzziness(sOpt.fuzziness).
 				MinimumShouldMatch(sOpt.minimumShouldMatch)
@@ -132,24 +127,37 @@ func (s *SearchClient) Search(ctx context.Context, index string, searchText inte
 		query.Must(multiMatchQuery)
 	}
 
-	if len(sOpt.boolQueries) > 0 {
-		for key, value := range sOpt.boolQueries {
-			if values, ok := value.([]string); ok {
-				for _, v := range values {
-					termQuery := elastic.NewTermQuery(key, v)
-					switch sOpt.boolClause {
-					case "must":
-						query.Must(termQuery)
-					case "should":
-						query.Should(termQuery)
-					case "must_not":
-						query.MustNot(termQuery)
-					default:
-						query.Filter(termQuery)
-					}
+	if len(sOpt.boolQueriesWithClause) > 0 {
+		for _, v := range sOpt.boolQueriesWithClause {
+			var termQuery *elastic.TermQuery
+			if values, ok := v.Query.([]interface{}); ok {
+				termsQuery := elastic.NewTermsQuery(v.Target, values...)
+				switch v.Clause {
+				case "must":
+					query.Must(termsQuery)
+				case "should":
+					query.Should(termsQuery)
+				case "must_not":
+					query.MustNot(termsQuery)
+				case "filter":
+					query.Filter(termsQuery)
+				default:
+					query.Filter(termsQuery)
 				}
 			} else {
-				query.Filter(elastic.NewTermQuery(key, value))
+				termQuery = elastic.NewTermQuery(v.Target, v.Query)
+				switch v.Clause {
+				case "must":
+					query.Must(termQuery)
+				case "should":
+					query.Should(termQuery)
+				case "must_not":
+					query.MustNot(termQuery)
+				case "filter":
+					query.Filter(termQuery)
+				default:
+					query.Filter(termQuery)
+				}
 			}
 		}
 	}

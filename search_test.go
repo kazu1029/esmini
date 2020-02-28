@@ -14,7 +14,7 @@ import (
 
 var tweet1 = tweet{Message: "message1", Retweets: 2, Created: time.Date(2018, 1, 2, 0, 0, 0, 0, time.UTC), Tags: []string{"tag1", "tag2"}, Category: "Category1"}
 var tweet2 = tweet{Message: "message2", Retweets: 5, Created: time.Date(2019, 10, 10, 10, 0, 0, 0, time.UTC), Tags: []string{"tag3", "tag4"}, Category: "Category2"}
-var tweet3 = tweet{Message: "message3", Retweets: 0, Created: time.Date(2018, 11, 11, 11, 0, 0, 0, time.UTC), Tags: []string{"tag5", "tag6"}, Category: "Category3"}
+var tweet3 = tweet{Message: "message3", Retweets: 2, Created: time.Date(2018, 11, 11, 11, 0, 0, 0, time.UTC), Tags: []string{"tag5", "tag6"}, Category: "Category3"}
 
 func setupTestData(client *elastic.Client, index string) {
 	mapping := `
@@ -119,16 +119,73 @@ func TestSearch(t *testing.T) {
 			"with SortField and Order options", "message", []string{"message"}, []tweet{tweet2, tweet3, tweet1}, []SearchOption{SortField("created"), Order(Desc)},
 		},
 		{
-			"with BoolQueries1", "", []string{"message"}, []tweet{tweet1}, []SearchOption{BoolQueries(map[string]interface{}{"category": "Category1"})},
+			"with BoolQueries1", "", []string{"message"}, []tweet{tweet1, tweet2},
+			[]SearchOption{
+				BoolQueriesWithClause(
+					[]BoolQueriesWithClauseOption{
+						BoolQueriesWithClauseOption{Target: "category", Query: "Category1", Clause: "should"},
+						BoolQueriesWithClauseOption{Target: "category", Query: []interface{}{"Category1", "Category2"}, Clause: "should"},
+					},
+				),
+			},
 		},
 		{
-			"with BoolQueries2", "", []string{"message"}, []tweet{tweet2, tweet3}, []SearchOption{BoolQueries(map[string]interface{}{"category": []string{"Category3", "Category2"}}), BoolClause("should")},
+			"with BoolQueries2", "", []string{"message"}, []tweet{tweet1},
+			[]SearchOption{
+				BoolQueriesWithClause(
+					[]BoolQueriesWithClauseOption{
+						BoolQueriesWithClauseOption{Target: "category", Query: "Category1", Clause: "should"},
+					},
+				),
+			},
 		},
-		// {
-		// 	"with BoolQueries and Query", "message", []string{"message"}, []tweet{tweet1, tweet2}, []SearchOption{BoolQueries(map[string]interface{}{"category": []string{"Category2", "Category1"}}), BoolClause("must")},
-		// },
 		{
-			"without query and with BoolQueries", "", []string{"message"}, []tweet{tweet1}, []SearchOption{BoolQueries(map[string]interface{}{"category": []string{"Category1", "Category2"}}), Limit(1), From(0), BoolClause("should")},
+			"with BoolQueries3", "", []string{"message"}, []tweet{tweet2, tweet3},
+			[]SearchOption{
+				BoolQueriesWithClause(
+					[]BoolQueriesWithClauseOption{
+						BoolQueriesWithClauseOption{Target: "category", Query: []interface{}{"Category3", "Category2"}, Clause: "filter"},
+					},
+				),
+			},
+		},
+		{
+			"with BoolQueries and Query", "message", []string{"message"}, []tweet{tweet1, tweet2},
+			[]SearchOption{
+				BoolQueriesWithClause(
+					[]BoolQueriesWithClauseOption{
+						BoolQueriesWithClauseOption{Target: "category", Query: []interface{}{"Category2", "Category1"}, Clause: "filter"},
+					},
+				),
+				MatchType("best_fields"),
+			},
+		},
+		{
+			"with no query and with BoolQueries", "", []string{"message"}, []tweet{tweet1},
+			[]SearchOption{
+				BoolQueriesWithClause(
+					[]BoolQueriesWithClauseOption{
+						BoolQueriesWithClauseOption{Target: "category", Query: []interface{}{"Category1", "Category2"}, Clause: "should"},
+					},
+				),
+				Limit(1),
+				From(0),
+			},
+		},
+		{
+			"with no query and no boolQueries", "", []string{"message"}, []tweet{tweet1, tweet2, tweet3},
+			[]SearchOption{},
+		},
+		{
+			"with query and multiple boolQueries", "message", []string{"message"}, []tweet{tweet1},
+			[]SearchOption{
+				BoolQueriesWithClause(
+					[]BoolQueriesWithClauseOption{
+						BoolQueriesWithClauseOption{Target: "category", Query: []interface{}{"Category1", "Category2"}, Clause: "filter"},
+						BoolQueriesWithClauseOption{Target: "retweets", Query: 2, Clause: "filter"},
+					},
+				),
+			},
 		},
 	}
 
@@ -264,7 +321,7 @@ func ExampleSearchClient_Search() {
 	// Output:
 	// {message1 2 2018-01-02 00:00:00 +0000 UTC [tag1 tag2] Category1}
 	// {message2 5 2019-10-10 10:00:00 +0000 UTC [tag3 tag4] Category2}
-	// {message3 0 2018-11-11 11:00:00 +0000 UTC [tag5 tag6] Category3}
+	// {message3 2 2018-11-11 11:00:00 +0000 UTC [tag5 tag6] Category3}
 	for itr.HasNext() {
 		var t tweet
 		err := itr.Next(&t)
