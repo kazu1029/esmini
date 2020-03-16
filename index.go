@@ -3,6 +3,8 @@ package esmini
 import (
 	"container/list"
 	"context"
+	"reflect"
+	"strconv"
 
 	"github.com/olivere/elastic/v7"
 )
@@ -38,6 +40,7 @@ func (i *IndexClient) CreateTemplate(ctx context.Context, tempName, template str
 
 type bulkOption struct {
 	pipeline string
+	docID    string
 }
 
 type BulkOption func(*bulkOption)
@@ -45,6 +48,12 @@ type BulkOption func(*bulkOption)
 func Pipeline(pipeline string) BulkOption {
 	return func(b *bulkOption) {
 		b.pipeline = pipeline
+	}
+}
+
+func DocID(docID string) BulkOption {
+	return func(b *bulkOption) {
+		b.docID = docID
 	}
 }
 
@@ -59,7 +68,24 @@ func (i *IndexClient) BulkInsert(ctx context.Context, index string, docs *list.L
 		Pipeline(bulkOpt.pipeline)
 
 	for d := docs.Front(); d != nil; d = d.Next() {
-		bulk = bulk.Add(elastic.NewBulkIndexRequest().Index(index).Doc(d.Value))
+		if len(bulkOpt.docID) > 0 {
+			var docID string
+			v := reflect.Indirect(reflect.ValueOf(d.Value))
+			t := v.Type()
+			for j := 0; j < t.NumField(); j++ {
+				if t.Field(j).Name == bulkOpt.docID {
+					if value, ok := v.Field(j).Interface().(int); ok {
+						docID = strconv.Itoa(value)
+					} else {
+						docID = v.Field(j).String()
+					}
+					break
+				}
+			}
+			bulk = bulk.Add(elastic.NewBulkIndexRequest().Index(index).Id(docID).Doc(d.Value))
+		} else {
+			bulk = bulk.Add(elastic.NewBulkIndexRequest().Index(index).Doc(d.Value))
+		}
 	}
 
 	res, err := bulk.Do(ctx)
