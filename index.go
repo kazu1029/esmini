@@ -96,6 +96,15 @@ func (i *IndexClient) BulkInsert(ctx context.Context, index string, docs *list.L
 	return res, nil
 }
 
+func (i *IndexClient) Update(ctx context.Context, index string, id string, doc map[string]interface{}) (*elastic.UpdateResponse, error) {
+	return i.raw.Update().
+		Index(index).
+		Id(id).
+		Doc(doc).
+		Refresh("true").
+		Do(ctx)
+}
+
 func (i *IndexClient) DeleteIndex(ctx context.Context, index string) (*elastic.IndicesDeleteResponse, error) {
 	return i.raw.DeleteIndex(index).Do(ctx)
 }

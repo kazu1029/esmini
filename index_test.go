@@ -285,3 +285,64 @@ func TestBulkInsertWithOptions(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestUpdate(t *testing.T) {
+	client, err := New(elastic.SetURL(ElasticSearchHost))
+	if err != nil {
+		t.Fatal(err)
+	}
+	index := "tweet"
+	defer client.Stop()
+
+	_, err = client.CreateIndex(context.TODO(), index)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tweet := tweetWithID{ID: 1, Message: "message1", Retweets: 1, Created: time.Now(), Tags: []string{"tag1", "tag2"}}
+
+	dataJSON, err := json.Marshal(tweet)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = client.raw.Index().
+		Index(index).
+		BodyString(string(dataJSON)).
+		Id("1").
+		Do(context.TODO())
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = client.Update(context.TODO(), index, "1", map[string]interface{}{"message": "message30", "retweets": 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	updatedTweet, err := client.raw.Get().
+		Index(index).
+		Id("1").
+		Do(context.TODO())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var tw tweetWithID
+	if err := json.Unmarshal(updatedTweet.Source, &tw); err != nil {
+		t.Fatal(err)
+	}
+
+	if tw.Message != "message30" {
+		t.Fatalf("expected %v, but got %v\n", "message30", tw.Message)
+	}
+
+	if tw.Retweets != 3 {
+		t.Fatalf("expected %v\n, but got %v\n", 3, tw.Retweets)
+	}
+
+	_, err = client.DeleteIndex(context.TODO(), index)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
