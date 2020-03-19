@@ -76,6 +76,8 @@ func (i *IndexClient) BulkInsert(ctx context.Context, index string, docs *list.L
 				if t.Field(j).Name == bulkOpt.docID {
 					if value, ok := v.Field(j).Interface().(int); ok {
 						docID = strconv.Itoa(value)
+					} else if value, ok := v.Field(j).Interface().(uint64); ok {
+						docID = strconv.FormatUint(value, 10)
 					} else {
 						docID = v.Field(j).String()
 					}
