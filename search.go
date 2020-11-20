@@ -13,9 +13,10 @@ type SearchClient struct {
 }
 
 type SearchResponse struct {
-	Hits    int64
-	Sources []json.RawMessage
-	index   int
+	TotalHits int64
+	Hits      int64
+	Sources   []json.RawMessage
+	index     int
 }
 
 type SearchOrder int
@@ -25,15 +26,21 @@ const (
 	Desc
 )
 
-const DefaultSize = 100
-const DefaultFrom = 0
+const (
+	DefaultSize      = 100
+	DefaultFrom      = 0
+	DefaultFuzziness = "AUTO"
+)
 
 type searchOption struct {
-	size      int
-	from      int
-	sortField string
-	order     SearchOrder
-	matchType string
+	size                  int
+	from                  int
+	sortField             string
+	order                 SearchOrder
+	matchType             string
+	fuzziness             string
+	minimumShouldMatch    string
+	boolQueriesWithClause []BoolQueriesWithClauseOption
 }
 
 type SearchOption func(*searchOption)
@@ -70,6 +77,30 @@ func MatchType(matchType string) SearchOption {
 	}
 }
 
+func Fuzziness(fuzziness string) SearchOption {
+	return func(s *searchOption) {
+		s.fuzziness = fuzziness
+	}
+}
+
+func MinimumShouldMatch(minimumShouldMatch string) SearchOption {
+	return func(s *searchOption) {
+		s.minimumShouldMatch = minimumShouldMatch
+	}
+}
+
+type BoolQueriesWithClauseOption struct {
+	Target string
+	Query  interface{}
+	Clause string // Clause can be "must", "should", "must_not", "filter"
+}
+
+func BoolQueriesWithClause(boolQueries []BoolQueriesWithClauseOption) SearchOption {
+	return func(s *searchOption) {
+		s.boolQueriesWithClause = boolQueries
+	}
+}
+
 func NewSearchClient(client *IndexClient) *SearchClient {
 	return &SearchClient{
 		iClient: client,
@@ -78,17 +109,59 @@ func NewSearchClient(client *IndexClient) *SearchClient {
 
 func (s *SearchClient) Search(ctx context.Context, index string, searchText interface{}, targetFields []string, opts ...SearchOption) (SearchResponse, error) {
 	sOpt := &searchOption{
-		size: DefaultSize,
-		from: DefaultFrom,
+		size:      DefaultSize,
+		from:      DefaultFrom,
+		fuzziness: DefaultFuzziness,
 	}
 	for _, opt := range opts {
 		opt(sOpt)
 	}
 
-	query := elastic.NewMultiMatchQuery(searchText, targetFields...).
-		Type(sOpt.matchType).
-		Fuzziness("AUTO").
-		MinimumShouldMatch("2")
+	query := elastic.NewBoolQuery()
+	if searchText != "" {
+		multiMatchQuery := elastic.NewMultiMatchQuery(searchText, targetFields...).Type(sOpt.matchType)
+		if sOpt.matchType != "cross_fields" {
+			multiMatchQuery.
+				Fuzziness(sOpt.fuzziness).
+				MinimumShouldMatch(sOpt.minimumShouldMatch)
+		}
+		query.Must(multiMatchQuery)
+	}
+
+	if len(sOpt.boolQueriesWithClause) > 0 {
+		for _, v := range sOpt.boolQueriesWithClause {
+			var termQuery *elastic.TermQuery
+			if values, ok := v.Query.([]interface{}); ok {
+				termsQuery := elastic.NewTermsQuery(v.Target, values...)
+				switch v.Clause {
+				case "must":
+					query.Must(termsQuery)
+				case "should":
+					query.Should(termsQuery)
+				case "must_not":
+					query.MustNot(termsQuery)
+				case "filter":
+					query.Filter(termsQuery)
+				default:
+					query.Filter(termsQuery)
+				}
+			} else {
+				termQuery = elastic.NewTermQuery(v.Target, v.Query)
+				switch v.Clause {
+				case "must":
+					query.Must(termQuery)
+				case "should":
+					query.Should(termQuery)
+				case "must_not":
+					query.MustNot(termQuery)
+				case "filter":
+					query.Filter(termQuery)
+				default:
+					query.Filter(termQuery)
+				}
+			}
+		}
+	}
 
 	var sortQuery *elastic.FieldSort
 	var res *elastic.SearchResult
@@ -123,7 +196,8 @@ func (s *SearchClient) Search(ctx context.Context, index string, searchText inte
 		}
 	}
 
-	result.Hits = res.Hits.TotalHits.Value
+	result.TotalHits = res.TotalHits()
+	result.Hits = int64(len(res.Hits.Hits))
 
 	for _, hit := range res.Hits.Hits {
 		result.Sources = append(result.Sources, hit.Source)
