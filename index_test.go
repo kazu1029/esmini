@@ -381,7 +381,7 @@ func TestDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	insertedTweet, err := client.raw.Get().
+	deletedTweet, err := client.raw.Get().
 		Index(index).
 		Id("1").
 		Do(context.TODO())
@@ -390,7 +390,7 @@ func TestDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if insertedTweet != nil {
+	if deletedTweet != nil {
 		t.Fatal("Tweet is not deleted")
 	}
 
