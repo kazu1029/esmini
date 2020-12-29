@@ -352,7 +352,7 @@ func TestDelete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	index := "delete-tweet"
+	index := "tweet"
 	defer client.Stop()
 
 	_, err = client.CreateIndex(context.TODO(), index)
