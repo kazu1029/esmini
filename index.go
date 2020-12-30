@@ -111,7 +111,7 @@ func (i *IndexClient) DeleteIndex(ctx context.Context, index string) (*elastic.I
 	return i.raw.DeleteIndex(index).Do(ctx)
 }
 
-func (i *IndexClient) Delete(ctx context.Context, index string, id string) (*elastic.DeleteResponse, error) {
+func (i *IndexClient) Delete(ctx context.Context, index, id string) (*elastic.DeleteResponse, error) {
 	return i.raw.Delete().
 		Index(index).
 		Id(id).
