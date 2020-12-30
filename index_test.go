@@ -346,3 +346,56 @@ func TestUpdate(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestDelete(t *testing.T) {
+	client, err := New(elastic.SetURL(ElasticSearchHost))
+	if err != nil {
+		t.Fatal(err)
+	}
+	index := "tweet"
+	defer client.Stop()
+
+	_, err = client.CreateIndex(context.TODO(), index)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tweet := tweetWithID{ID: 1, Message: "message1", Retweets: 1, Created: time.Now(), Tags: []string{"tag1", "tag2"}}
+
+	dataJSON, err := json.Marshal(tweet)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = client.raw.Index().
+		Index(index).
+		BodyString(string(dataJSON)).
+		Id("1").
+		Do(context.TODO())
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = client.Delete(context.TODO(), index, "1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	deletedTweet, err := client.raw.Get().
+		Index(index).
+		Id("1").
+		Do(context.TODO())
+
+	if err != nil && err.Error() != "elastic: Error 404 (Not Found)" {
+		t.Fatal(err)
+	}
+
+	if deletedTweet != nil {
+		t.Fatal("Tweet is not deleted")
+	}
+
+	_, err = client.DeleteIndex(context.TODO(), index)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
